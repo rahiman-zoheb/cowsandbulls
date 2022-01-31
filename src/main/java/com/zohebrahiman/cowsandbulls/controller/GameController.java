@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.zohebrahiman.cowsandbulls.core.FileLoader;
+import com.zohebrahiman.cowsandbulls.core.WordHelper;
 import com.zohebrahiman.cowsandbulls.model.Game;
 import com.zohebrahiman.cowsandbulls.model.GameRepository;
 import com.zohebrahiman.cowsandbulls.model.GuessRepository;
@@ -45,13 +45,13 @@ public class GameController {
 	}
 
 	@PostMapping("/game")
-	ResponseEntity<Game> createGame() throws URISyntaxException {
+	ResponseEntity<Game> createGame() throws URISyntaxException, IllegalAccessException {
 		log.info("Request to create game");
 
 		// Delete all existing List of Guesses
 		this.guessRepository.deleteAll();
 		// Create a new Secret
-		String secretName = FileLoader.getRandomSecretName();
+		String secretName = WordHelper.getRandomSecret();
 		Secret secret = secretRepository.save(new Secret(secretName));
 		// Create a new Game
 		Game game = Game.builder().secret(secret).build();

@@ -8,7 +8,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 import com.zohebrahiman.cowsandbulls.core.Calculator;
-import com.zohebrahiman.cowsandbulls.core.FileLoader;
+import com.zohebrahiman.cowsandbulls.core.WordHelper;
 import com.zohebrahiman.cowsandbulls.model.GameRepository;
 import com.zohebrahiman.cowsandbulls.model.Guess;
 import com.zohebrahiman.cowsandbulls.model.GuessRepository;
@@ -30,11 +30,11 @@ class Initializer implements CommandLineRunner {
 	}
 
 	@Override
-	public void run(String... strings) throws IOException {
+	public void run(String... strings) throws IOException, IllegalAccessException {
 		// Load 4 letter words
-		FileLoader.loadFourLetters();
+		WordHelper.loadFourLetterSecretFile();
 
-		Secret randomSecret = new Secret(FileLoader.getRandomSecretName());
+		Secret randomSecret = new Secret(WordHelper.getRandomSecret());
 		secretRepository.save(randomSecret);
 		secretRepository.findAll().forEach(System.out::println);
 
