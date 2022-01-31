@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Button, Container, Table, Form, FormText, FormFeedback, FormGroup, Input, Label } from 'reactstrap';
+import { Button, Container, Table, Form, FormFeedback, FormGroup, Input } from 'reactstrap';
 import AppNavbar from './AppNavbar';
 
 class GuessList extends Component {
