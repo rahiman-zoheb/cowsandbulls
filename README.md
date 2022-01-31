@@ -14,7 +14,10 @@ Bull = A correct letter in correct place
 ## Steps to set up
 ### Run back end app
 + Clone the repository [cowsandbulls](https://github.com/rahiman-zoheb/cowsandbulls)
-+ Run it so that it is available on 127.0.0.1:8080 (proxy set up)
++ Run it so that it is available on `127.0.0.1:8080` (proxy set up)
+  + For docker-compose, Run `docker-compose build` and `docker-compose up`
+  + For Dockerfile, Run `docker build -t zohebrahiman/cowsandbulls .` and `docker run -it -p 8080:8080 zohebrahiman/cowsandbulls`
+
 ### Run front end app
 + Clone the repository [cowsandbulls_reactjs](https://github.com/rahiman-zoheb/cowsandbulls_reactjs)
 + Run `npm install`
