@@ -58,3 +58,9 @@ To learn React, check out the [React documentation](https://reactjs.org/).
 + Clone the repository [cowsandbulls_reactjs](https://github.com/rahiman-zoheb/cowsandbulls_reactjs)
 + Run `npm install`
 + Run `npm start`
+
+## Dockerized Run
+### Dockerfile options
+IMPORTANT: Dockerization is working, but since the app is not pointing to backend service yet, it will not connect
++ Run `docker build -t zohebrahiman/cowsandbulls_reactjs .` -> Build docker image
++ Run `docker run -ti --rm -v ${PWD}:/app -v /app/node_modules -p 3001:3000 -e CHOKIDAR_USEPOLLING=true zohebrahiman/cowsandbulls_reactjs` -> Run a container
