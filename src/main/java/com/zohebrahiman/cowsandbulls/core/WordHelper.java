@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -22,10 +23,22 @@ public class WordHelper {
 
     public static void loadFourLetterSecretFile() throws IOException {
         String fileName = "/four-letters.txt";
+        // ClassLoader.getResourceAsStream does not strip a leading slash, so the
+        // previous lookup returned null and NPEd on any plain classpath -- which
+        // is why the only test in the repo could never load the context. Class
+        // .getResourceAsStream does treat a leading slash as absolute.
+        InputStream resource = WordHelper.class.getResourceAsStream(fileName);
+        if (resource == null) {
+            throw new IOException("Missing word list on the classpath: " + fileName);
+        }
         try (
-                InputStream inputStream = new WordHelper().getClass().getClassLoader().getResourceAsStream(fileName);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                InputStream inputStream = resource;
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
             ) {
+            // Reloading in the same JVM (e.g. a second Spring context in a
+            // test run) would otherwise append a duplicate copy of the list.
+            listOfSecrets.clear();
+
             String word;
 
             outer: while ((word = reader.readLine()) != null) {
