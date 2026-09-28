@@ -10,9 +10,9 @@ export default class AppNavbar extends Component {
   }
 
   toggle() {
-    this.setState({
-      isOpen: !this.state.isOpen
-    });
+    this.setState(previous => ({
+      isOpen: !previous.isOpen
+    }));
   }
 
   render() {
@@ -20,7 +20,7 @@ export default class AppNavbar extends Component {
       <NavbarBrand tag={Link} to="/">Home</NavbarBrand>
       <NavbarToggler onClick={this.toggle}/>
       <Collapse isOpen={this.state.isOpen} navbar>
-        <Nav className="ml-auto" navbar>
+        <Nav className="ms-auto" navbar>
           <NavItem>
             <NavLink
               href="https://zohebrahiman.com">Zoheb Rahiman</NavLink>
