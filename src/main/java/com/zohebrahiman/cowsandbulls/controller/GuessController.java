@@ -20,21 +20,22 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.zohebrahiman.cowsandbulls.core.Calculator;
+import com.zohebrahiman.cowsandbulls.model.Game;
+import com.zohebrahiman.cowsandbulls.model.GameRepository;
 import com.zohebrahiman.cowsandbulls.model.Guess;
 import com.zohebrahiman.cowsandbulls.model.GuessRepository;
 import com.zohebrahiman.cowsandbulls.model.Secret;
-import com.zohebrahiman.cowsandbulls.model.SecretRepository;
 
 @RestController
 @RequestMapping("/api")
 public class GuessController {
 	private final Logger log = LoggerFactory.getLogger(GuessController.class);
 
-	private SecretRepository secretRepository;
+	private GameRepository gameRepository;
 	private GuessRepository guessRepository;
 
-	public GuessController(SecretRepository secretRepository, GuessRepository guessRepository) {
-		this.secretRepository = secretRepository;
+	public GuessController(GameRepository gameRepository, GuessRepository guessRepository) {
+		this.gameRepository = gameRepository;
 		this.guessRepository = guessRepository;
 	}
 
@@ -53,7 +54,12 @@ public class GuessController {
 	@PostMapping("/guess")
 	ResponseEntity<Guess> createGuess(@Valid @RequestBody Guess guess) throws URISyntaxException {
 		log.info("Request to create guess: {}", guess);
-		Secret secret = secretRepository.findAll().get(0);
+		// Previously secretRepository.findAll().get(0), which is always the word
+		// seeded at startup. POST /api/game created a new secret but scoring never
+		// moved to it, so the answer never changed for the life of the process.
+		Secret secret = gameRepository.findFirstByOrderByIdDesc()
+				.map(Game::getSecret)
+				.orElseThrow(() -> new IllegalStateException("No game in progress"));
 		int[] cowsAndBulls = Calculator.calculate(secret.getName(), guess.getName());
 		guess.setCows(cowsAndBulls[0]);
 		guess.setBulls(cowsAndBulls[1]);

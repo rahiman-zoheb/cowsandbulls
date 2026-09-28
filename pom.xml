@@ -18,6 +18,9 @@
 
     <properties>
         <java.version>8</java.version>
+        <!-- Boot 2.3.2 manages Lombok 1.18.12, which predates JDK 16 module
+             encapsulation and fails with IllegalAccessError on newer JDKs. -->
+        <lombok.version>1.18.30</lombok.version>
     </properties>
 
     <dependencies>

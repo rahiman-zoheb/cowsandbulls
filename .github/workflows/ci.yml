@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 8 is the language level the pom targets; 17 and 21 prove the build is
+        # no longer pinned to an EOL JDK by the old Lombok.
+        java-version: ['8', '17', '21']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: temurin
+          cache: maven
+
+      - name: Build and test
+        run: ./mvnw -B verify
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-java-${{ matrix.java-version }}
+          path: target/surefire-reports/
+          if-no-files-found: ignore

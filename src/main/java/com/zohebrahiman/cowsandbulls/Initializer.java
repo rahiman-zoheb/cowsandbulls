@@ -1,7 +1,6 @@
 package com.zohebrahiman.cowsandbulls;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.stream.Stream;
 
 import org.springframework.boot.CommandLineRunner;
@@ -9,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import com.zohebrahiman.cowsandbulls.core.Calculator;
 import com.zohebrahiman.cowsandbulls.core.WordHelper;
+import com.zohebrahiman.cowsandbulls.model.Game;
 import com.zohebrahiman.cowsandbulls.model.GameRepository;
 import com.zohebrahiman.cowsandbulls.model.Guess;
 import com.zohebrahiman.cowsandbulls.model.GuessRepository;
@@ -34,9 +34,7 @@ class Initializer implements CommandLineRunner {
 		// Load 4 letter words
 		WordHelper.loadFourLetterSecretFile();
 
-		Secret randomSecret = new Secret(WordHelper.getRandomSecret());
-		secretRepository.save(randomSecret);
-		secretRepository.findAll().forEach(System.out::println);
+		Secret randomSecret = secretRepository.save(new Secret(WordHelper.getRandomSecret()));
 
 		Stream.of("abcd").forEach(name -> {
 			int[] cowsAndBulls = Calculator.calculate(randomSecret.getName(), name);
@@ -45,12 +43,14 @@ class Initializer implements CommandLineRunner {
 			Guess guess = Guess.builder().name(name).cows(cows).bulls(bulls).build();
 			guessRepository.save(guess);
 		});
-		List<Guess> guesses = guessRepository.findAll();
-		guesses.forEach(System.out::println);
-
-//		Game game = Game.builder().secret(noteSecret).guesses(guesses).build();
-//		gameRepository.save(game);
-//        gameRepository.findAll().forEach(System.out::println);
+		// A game has to exist before the first guess: guesses are scored against
+		// the current game's secret, and a client can POST a guess without ever
+		// calling POST /api/game.
+		//
+		// Guesses are deliberately not attached here. Game.guesses cascades ALL, so
+		// passing the already-persisted rows makes Hibernate re-persist detached
+		// entities. Nothing reads Game.guesses; GameController builds it the same way.
+		gameRepository.save(Game.builder().secret(randomSecret).build());
 
 	}
 }
