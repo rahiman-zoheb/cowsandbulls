@@ -24,6 +24,15 @@ You will also see any lint errors in the console.
 Launches the test runner in the interactive watch mode.<br />
 See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
 
+Run once with a coverage report, the way CI does:
+
+```
+npm test -- --watchAll=false --coverage
+```
+
+Coverage thresholds are enforced from the `jest` block in `package.json`, so a
+drop below them fails the run.
+
 ### `npm run build`
 
 Builds the app for production to the `build` folder.<br />
@@ -58,6 +67,12 @@ To learn React, check out the [React documentation](https://reactjs.org/).
 + Clone the repository [cowsandbulls_reactjs](https://github.com/rahiman-zoheb/cowsandbulls_reactjs)
 + Run `npm install`
 + Run `npm start`
+
+All backend calls go through `src/api.js`, which prefixes them with `/api` by
+default. Point the app at a different origin by setting `REACT_APP_API_BASE`
+before the build, e.g. `REACT_APP_API_BASE=https://example.com/api npm run build`.
+Note that the `proxy` field in `package.json` is honoured only by the dev
+server, so a production build needs either this variable or a reverse proxy.
 
 ## Dockerized Run
 ### Dockerfile options
