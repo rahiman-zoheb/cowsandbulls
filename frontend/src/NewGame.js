@@ -34,7 +34,11 @@ class NewGame extends Component {
     } catch (error) {
       console.error('Could not start a new game', error);
       if (this.mounted) {
-        this.setState({ error: 'Could not start a new game. Is the backend running?' });
+        // Rate limited (429) or at capacity (503): the server says when to
+        // retry, and "is the backend running?" would send the player looking
+        // for an outage that isn't there.
+        const busy = (error.status === 429 || error.status === 503) && error.detail;
+        this.setState({ error: busy ? error.detail : 'Could not start a new game. Is the backend running?' });
       }
     }
   }

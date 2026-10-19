@@ -1,5 +1,8 @@
 package com.zohebrahiman.cowsandbulls.model;
 
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -18,8 +21,11 @@ public class Guess {
 	@GeneratedValue
 	private Long id;
 
+	// Expiry deletes games in bulk with a single query, which bypasses JPA
+	// cascades; ON DELETE CASCADE in the schema takes the guesses with them.
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "game_id", nullable = false)
+	@OnDelete(action = OnDeleteAction.CASCADE)
 	private Game game;
 
 	@Column(nullable = false, length = Game.WORD_LENGTH)

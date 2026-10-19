@@ -38,7 +38,9 @@ import com.jayway.jsonpath.JsonPath;
 import com.zohebrahiman.cowsandbulls.core.Calculator;
 import com.zohebrahiman.cowsandbulls.model.Game;
 
-@SpringBootTest
+// Creates dozens of games per run, far past the per-client limits; those are
+// covered by ApiRequestLimitFilterTest and RequestLimitsIntegrationTest.
+@SpringBootTest(properties = "cowsandbulls.api.rate-limits-enabled=false")
 @AutoConfigureMockMvc
 class GameControllerTest {
 

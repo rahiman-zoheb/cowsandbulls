@@ -56,6 +56,19 @@ with an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem object whose 
 | `422` | four letters, but not in the word list |
 | `409` | already guessed in this game, or the game is over |
 
+Limits, all configurable in `backend/src/main/resources/application.properties`:
+
+| Limit | Default | Response |
+|---|---|---|
+| Requests per client per minute | 120 | `429` with `Retry-After` |
+| New games per client per minute | 10 | `429` with `Retry-After` |
+| Request body size | 1 KB | `413` (`411` for chunked bodies) |
+| Live games | 50,000 | `503` with `Retry-After` |
+| Idle game lifetime | 24 hours | deleted, then `404` |
+
+Behind a reverse proxy, the client is taken from `X-Forwarded-For`, but only when the proxy is on a
+private network.
+
 The frontend mirrors this: `/games/new` starts a game and replaces its own URL with
 `/games/{id}`, so refreshing the page resumes the same game.
 

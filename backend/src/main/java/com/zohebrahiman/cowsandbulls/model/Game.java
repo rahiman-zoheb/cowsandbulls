@@ -51,6 +51,10 @@ public class Game {
 	@Column(nullable = false)
 	private Instant createdAt;
 
+	/** When the game was created or last guessed in; idle games expire from this. */
+	@Column(nullable = false)
+	private Instant lastActivityAt;
+
 	/**
 	 * Two guesses racing on the same game make the second fail instead of both
 	 * being applied. Also lets Spring Data tell a new game (null) from a
@@ -67,11 +71,12 @@ public class Game {
 		// for JPA
 	}
 
-	public Game(String secret) {
+	public Game(String secret, Instant now) {
 		this.id = UUID.randomUUID();
 		this.secret = secret;
 		this.status = GameStatus.IN_PROGRESS;
-		this.createdAt = Instant.now();
+		this.createdAt = now;
+		this.lastActivityAt = now;
 	}
 
 	/**
@@ -81,7 +86,7 @@ public class Game {
 	 * @throws GameOverException if the game is already won or lost
 	 * @throws DuplicateGuessException if this word was already guessed
 	 */
-	public Guess guess(String word) {
+	public Guess guess(String word, Instant now) {
 		requireInProgress();
 		if (guesses.stream().anyMatch(previous -> previous.getName().equals(word))) {
 			throw new DuplicateGuessException(word);
@@ -89,6 +94,7 @@ public class Game {
 		int[] cowsAndBulls = Calculator.calculate(secret, word);
 		Guess guess = new Guess(this, word, cowsAndBulls[0], cowsAndBulls[1]);
 		guesses.add(guess);
+		lastActivityAt = now;
 		if (guess.getBulls() == WORD_LENGTH) {
 			status = GameStatus.WON;
 		} else if (guesses.size() >= MAX_ATTEMPTS) {
@@ -124,6 +130,10 @@ public class Game {
 
 	public Instant getCreatedAt() {
 		return createdAt;
+	}
+
+	public Instant getLastActivityAt() {
+		return lastActivityAt;
 	}
 
 	public List<Guess> getGuesses() {
