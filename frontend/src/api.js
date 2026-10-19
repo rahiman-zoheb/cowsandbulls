@@ -1,11 +1,9 @@
 // Central place for backend calls so every call site agrees on the base path
 // and on how failures are surfaced.
 //
-// The backend (https://github.com/rahiman-zoheb/cowsandbulls) has no 4xx
-// validation path: a wrong-length guess throws in Calculator.calculate, and a
-// guess containing anything outside [a-z] overflows its 26-slot tally array.
-// Both reach the client as a generic Spring 500 with no usable message, so the
-// guess must be normalized and validated here before it is ever sent.
+// The server is authoritative: it keeps the secret and only ever returns a
+// game as { id, status, guesses, answer }, where answer stays null until the
+// game is won. Nothing here can learn the word early.
 
 export const API_BASE = process.env.REACT_APP_API_BASE || '/api';
 
@@ -26,49 +24,48 @@ const JSON_HEADERS = {
 };
 
 function failed(response) {
-  return new Error(`Request failed with status ${response.status}`);
+  const error = new Error(`Request failed with status ${response.status}`);
+  // Lets callers tell "this game doesn't exist" (404) from "the server broke".
+  error.status = response.status;
+  return error;
 }
 
-// Spring's default error handler replies with a JSON *object*, so a failed
-// request still parses cleanly. Without the ok check that object would be
-// stored as the guess list and blow up the next render on .map.
-async function readJson(response) {
+async function readGame(response) {
   if (!response.ok) {
     throw failed(response);
   }
-  return response.json();
+  const game = await response.json();
+  // Anything that isn't shaped like a game (an error envelope, say) is
+  // rejected here rather than being rendered.
+  if (!game || typeof game.id !== 'string' || !Array.isArray(game.guesses)) {
+    throw new Error('Unexpected response from the server');
+  }
+  return game;
 }
 
-// POST /api/game clears the guess list server-side. The controller takes no
-// @RequestBody, so no payload is sent.
-export function createGame() {
-  return fetch(`${API_BASE}/game`, {
+const gameUrl = id => `${API_BASE}/games/${encodeURIComponent(id)}`;
+
+export async function createGame() {
+  return readGame(await fetch(`${API_BASE}/games`, {
     method: 'POST',
     headers: { Accept: 'application/json' },
-  }).then(response => {
-    if (!response.ok) {
-      throw failed(response);
-    }
-    return response;
-  });
+  }));
 }
 
-export async function fetchGuesses() {
-  const data = await readJson(await fetch(`${API_BASE}/guesses`, {
+export async function fetchGame(id) {
+  return readGame(await fetch(gameUrl(id), {
     headers: { Accept: 'application/json' },
   }));
-  // GET /api/guesses returns a bare array; anything else means the backend is
-  // reporting an error in a shape we cannot render.
-  return Array.isArray(data) ? data : [];
 }
 
-export async function submitGuess(name) {
+export async function submitGuess(id, name) {
   const guess = normalizeGuess(name);
   if (!GUESS_PATTERN.test(guess)) {
     throw new Error('Please provide a valid 4 letter word');
   }
-  // Always POST: the backend exposes no PUT for guesses.
-  return readJson(await fetch(`${API_BASE}/guess`, {
+  // Returns the whole updated game, so the caller learns the score and whether
+  // it won from this one response.
+  return readGame(await fetch(`${gameUrl(id)}/guesses`, {
     method: 'POST',
     headers: JSON_HEADERS,
     body: JSON.stringify({ name: guess }),

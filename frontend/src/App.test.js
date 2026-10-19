@@ -1,7 +1,7 @@
 import React from 'react';
-import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
+import { render, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import App from './App';
-import { jsonResponse, SAMPLE_GUESSES } from './test-utils';
+import { GAME_ID, gameResponse, jsonResponse } from './test-utils';
 
 // App mounts a BrowserRouter, so the route comes from jsdom's URL rather than
 // from initialEntries. jsdom shares one window per file, so it has to be reset.
@@ -11,25 +11,40 @@ function visit(path) {
 }
 
 beforeEach(() => {
-  global.fetch = jest.fn(() => jsonResponse(SAMPLE_GUESSES));
+  global.fetch = jest.fn(() => jsonResponse(gameResponse()));
 });
 
 afterEach(() => {
   window.history.pushState({}, '', '/');
 });
 
-it('renders the home route by default', () => {
+it('renders the home route by default without touching the API', () => {
   visit('/');
 
-  expect(screen.getByRole('link', { name: 'Play A Game' })).toHaveAttribute('href', '/guesses');
+  expect(screen.getByRole('link', { name: 'Play A Game' })).toHaveAttribute('href', '/games/new');
   expect(global.fetch).not.toHaveBeenCalled();
 });
 
-it('renders the guess list at /guesses', async () => {
-  visit('/guesses');
+it('renders a game at /games/:gameId', async () => {
+  visit(`/games/${GAME_ID}`);
 
   await waitForElementToBeRemoved(() => screen.queryByText('Loading...'));
   expect(screen.getByRole('heading', { name: 'My guesses' })).toBeInTheDocument();
+  expect(global.fetch.mock.calls[0][0]).toBe(`/api/games/${GAME_ID}`);
+});
+
+it('starts a game at /games/new and lands on its URL', async () => {
+  visit('/games/new');
+
+  await waitFor(() => expect(window.location.pathname).toBe(`/games/${GAME_ID}`));
+  expect(global.fetch.mock.calls[0][1].method).toBe('POST');
+});
+
+it('sends the old /guesses link to a new game', async () => {
+  // Bookmarks and shared links from before games had their own URLs.
+  visit('/guesses');
+
+  await waitFor(() => expect(window.location.pathname).toBe(`/games/${GAME_ID}`));
 });
 
 it('renders a not-found page for an unknown route', () => {
@@ -39,11 +54,5 @@ it('renders a not-found page for an unknown route', () => {
 
   expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Go back home' })).toHaveAttribute('href', '/');
-});
-
-it('renders a not-found page for /guess, a plausible typo for /guesses', () => {
-  visit('/guess');
-
-  expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
   expect(global.fetch).not.toHaveBeenCalled();
 });

@@ -32,6 +32,24 @@ npm install
 npm start
 ```
 
+## API
+
+Every game is independent and addressed by a random UUID. The server keeps the secret; responses
+never include it until the game is won.
+
+| Request | Response |
+|---|---|
+| `POST /api/games` | `201`, a new game: `{ id, status: "IN_PROGRESS", guesses: [], answer: null }` |
+| `GET /api/games/{id}` | `200` with the game, or `404` for an unknown id |
+| `POST /api/games/{id}/guesses` with `{ "name": "word" }` | `201` with the updated game; `409` once the game is won |
+
+Each guess comes back as `{ attempt, name, cows, bulls }`. When a guess scores four bulls, `status`
+becomes `WON` and `answer` holds the word. Errors are
+[RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem objects.
+
+The frontend mirrors this: `/games/new` starts a game and replaces its own URL with
+`/games/{id}`, so refreshing the page resumes the same game.
+
 ## Tests
 
 ```
