@@ -7,14 +7,17 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * The words a game's secret can be drawn from. Loaded once at startup.
+ * The dictionary of four-letter words. Any of them is a legal guess; only those
+ * with no repeated letter can be a secret. Loaded once at startup.
  */
 @Component
 public class WordList {
@@ -25,8 +28,9 @@ public class WordList {
 
 	// Calculator indexes a 26-slot array with charAt(i) - 'a', so a secret
 	// outside a-z would make every guess in that game throw.
-	private static final Pattern VALID_SECRET = Pattern.compile("[a-z]{4}");
+	private static final Pattern FOUR_LETTERS = Pattern.compile("[a-z]{4}");
 
+	private final Set<String> dictionary;
 	private final List<String> secrets;
 
 	// The secret is the one thing a player must not be able to work out, and
@@ -34,8 +38,16 @@ public class WordList {
 	private final SecureRandom random = new SecureRandom();
 
 	public WordList() throws IOException {
-		this.secrets = load();
-		log.info("Loaded {} possible secrets", secrets.size());
+		this.dictionary = load();
+		this.secrets = dictionary.stream().filter(WordList::isUsableSecret).sorted().toList();
+		if (secrets.isEmpty()) {
+			throw new IOException("No usable secrets in " + RESOURCE);
+		}
+		log.info("Loaded {} words, {} usable as secrets", dictionary.size(), secrets.size());
+	}
+
+	public boolean isWord(String word) {
+		return dictionary.contains(word);
 	}
 
 	public String randomSecret() {
@@ -46,11 +58,15 @@ public class WordList {
 		return secrets;
 	}
 
-	static boolean isUsableSecret(String word) {
-		return VALID_SECRET.matcher(word).matches() && word.chars().distinct().count() == word.length();
+	Set<String> dictionary() {
+		return dictionary;
 	}
 
-	private static List<String> load() throws IOException {
+	static boolean isUsableSecret(String word) {
+		return FOUR_LETTERS.matcher(word).matches() && word.chars().distinct().count() == word.length();
+	}
+
+	private static Set<String> load() throws IOException {
 		// Class.getResourceAsStream treats the leading slash as absolute;
 		// ClassLoader.getResourceAsStream would not, and returns null.
 		InputStream resource = WordList.class.getResourceAsStream(RESOURCE);
@@ -58,11 +74,10 @@ public class WordList {
 			throw new IOException("Missing word list on the classpath: " + RESOURCE);
 		}
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource, StandardCharsets.UTF_8))) {
-			List<String> words = reader.lines().map(String::trim).filter(WordList::isUsableSecret).toList();
-			if (words.isEmpty()) {
-				throw new IOException("No usable secrets in " + RESOURCE);
-			}
-			return words;
+			return reader.lines()
+					.map(String::trim)
+					.filter(word -> FOUR_LETTERS.matcher(word).matches())
+					.collect(Collectors.toUnmodifiableSet());
 		}
 	}
 }

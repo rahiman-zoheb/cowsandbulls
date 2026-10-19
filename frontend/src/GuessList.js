@@ -8,6 +8,10 @@ const EMPTY_ITEM = { name: '' };
 
 const INVALID_GUESS_MESSAGE = 'Please provide a valid 4 letter word';
 
+// The server's reasons for these are meant for the player: not a word (422),
+// already guessed or game over (409), malformed (400).
+const REJECTED_GUESS_STATUSES = [400, 409, 422];
+
 // Plays the game named in the URL. Loading never creates a game, so a refresh
 // resumes where you left off; only NewGame (/games/new) starts one.
 class GuessList extends Component {
@@ -118,7 +122,13 @@ class GuessList extends Component {
       const game = await submitGuess(this.gameId(), item.name);
       this.setStateIfMounted({ game, item: { ...EMPTY_ITEM }, touched: false, isSubmitting: false });
     } catch (error) {
-      this.fail('Could not submit your guess. Please try again.', error);
+      if (REJECTED_GUESS_STATUSES.includes(error.status) && error.detail) {
+        // An expected rejection, not a failure: say why and keep the guess so
+        // it can be corrected.
+        this.setStateIfMounted({ isSubmitting: false, error: error.detail });
+      } else {
+        this.fail('Could not submit your guess. Please try again.', error);
+      }
     }
   }
 
@@ -126,7 +136,7 @@ class GuessList extends Component {
     return <Button color={color} tag={Link} to="/games/new">New game</Button>;
   }
 
-  renderForm() {
+  renderForm(game) {
     const { item, isSubmitting, touched } = this.state;
     const showValidity = touched && normalizeGuess(item.name).length > 0;
     const guessIsValid = isValidGuess(item.name);
@@ -143,6 +153,9 @@ class GuessList extends Component {
                 invalid={showValidity && !guessIsValid}
           />
           <FormFeedback>{INVALID_GUESS_MESSAGE}</FormFeedback>
+          <p className="text-muted mt-1 mb-0">
+            {game.attemptsLeft} {game.attemptsLeft === 1 ? 'guess' : 'guesses'} left
+          </p>
         </FormGroup>
         <FormGroup className="mb-3">
           <Button color="primary" type="submit" className="me-2" disabled={isSubmitting || !guessIsValid}>
@@ -164,6 +177,27 @@ class GuessList extends Component {
         {this.renderNewGameButton('primary')}
       </>
     );
+  }
+
+  renderLoss(game) {
+    return (
+      <>
+        <Alert color="secondary" className="mt-3">
+          Out of guesses! The word was <strong>{game.answer}</strong>.
+        </Alert>
+        {this.renderNewGameButton('primary')}
+      </>
+    );
+  }
+
+  renderGame(game) {
+    if (game.status === 'WON') {
+      return this.renderWin(game);
+    }
+    if (game.status === 'LOST') {
+      return this.renderLoss(game);
+    }
+    return this.renderForm(game);
   }
 
   renderGuesses(game) {
@@ -217,7 +251,7 @@ class GuessList extends Component {
             </>
           )}
 
-          {game && (game.status === 'WON' ? this.renderWin(game) : this.renderForm())}
+          {game && this.renderGame(game)}
         </Container>
         {game && this.renderGuesses(game)}
       </div>

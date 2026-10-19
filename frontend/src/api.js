@@ -2,8 +2,8 @@
 // and on how failures are surfaced.
 //
 // The server is authoritative: it keeps the secret and only ever returns a
-// game as { id, status, guesses, answer }, where answer stays null until the
-// game is won. Nothing here can learn the word early.
+// game as { id, status, guesses, attemptsLeft, answer }, where answer stays
+// null until the game is won or lost. Nothing here can learn the word early.
 
 export const API_BASE = process.env.REACT_APP_API_BASE || '/api';
 
@@ -23,16 +23,26 @@ const JSON_HEADERS = {
   'Content-Type': 'application/json',
 };
 
-function failed(response) {
+async function failed(response) {
   const error = new Error(`Request failed with status ${response.status}`);
   // Lets callers tell "this game doesn't exist" (404) from "the server broke".
   error.status = response.status;
+  // The server explains rejected guesses ("'qqqq' is not in the word list") in
+  // an RFC 9457 problem body; keep that so the player can be told why.
+  try {
+    const problem = await response.json();
+    if (problem && typeof problem.detail === 'string') {
+      error.detail = problem.detail;
+    }
+  } catch (notJson) {
+    // No usable body; the status alone will have to do.
+  }
   return error;
 }
 
 async function readGame(response) {
   if (!response.ok) {
-    throw failed(response);
+    throw await failed(response);
   }
   const game = await response.json();
   // Anything that isn't shaped like a game (an error envelope, say) is

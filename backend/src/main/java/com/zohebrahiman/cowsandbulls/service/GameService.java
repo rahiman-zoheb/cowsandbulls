@@ -36,8 +36,16 @@ public class GameService {
 		return GameResponse.of(find(id));
 	}
 
+	/**
+	 * Rules are checked in the order a player would want to hear about them:
+	 * a finished game first, then an unknown word, then a repeat.
+	 */
 	public GameResponse guess(UUID id, String word) {
 		Game game = find(id);
+		game.requireInProgress();
+		if (!words.isWord(word)) {
+			throw new NotAWordException(word);
+		}
 		game.guess(word);
 		return GameResponse.of(game);
 	}

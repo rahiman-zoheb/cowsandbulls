@@ -15,6 +15,8 @@ import com.zohebrahiman.cowsandbulls.api.GameResponse;
 import com.zohebrahiman.cowsandbulls.api.GuessRequest;
 import com.zohebrahiman.cowsandbulls.service.GameService;
 
+import jakarta.validation.Valid;
+
 /**
  * The whole public API. Every game is independent and addressed by an opaque
  * ID; there is no way to list games, read or change a secret, or delete
@@ -46,7 +48,7 @@ public class GameController {
 	 * whether it has won from a single response.
 	 */
 	@PostMapping("/{id}/guesses")
-	public ResponseEntity<GameResponse> guess(@PathVariable UUID id, @RequestBody GuessRequest request) {
+	public ResponseEntity<GameResponse> guess(@PathVariable UUID id, @Valid @RequestBody GuessRequest request) {
 		GameResponse game = games.guess(id, request.name());
 		return ResponseEntity.created(location(game)).body(game);
 	}

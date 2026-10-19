@@ -35,17 +35,26 @@ npm start
 ## API
 
 Every game is independent and addressed by a random UUID. The server keeps the secret; responses
-never include it until the game is won.
+never include it until the game is over.
 
 | Request | Response |
 |---|---|
-| `POST /api/games` | `201`, a new game: `{ id, status: "IN_PROGRESS", guesses: [], answer: null }` |
+| `POST /api/games` | `201`, a new game |
 | `GET /api/games/{id}` | `200` with the game, or `404` for an unknown id |
-| `POST /api/games/{id}/guesses` with `{ "name": "word" }` | `201` with the updated game; `409` once the game is won |
+| `POST /api/games/{id}/guesses` with `{ "name": "word" }` | `201` with the updated game |
 
-Each guess comes back as `{ attempt, name, cows, bulls }`. When a guess scores four bulls, `status`
-becomes `WON` and `answer` holds the word. Errors are
-[RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem objects.
+A game is `{ id, status, guesses: [{ attempt, name, cows, bulls }], attemptsLeft, answer }`.
+`status` is `IN_PROGRESS`, `WON` (four bulls) or `LOST` (20 guesses without finding the word), and
+`answer` holds the word once the game is won or lost.
+
+Guesses are case-insensitive and may repeat letters (only the secret can't). A guess is rejected
+with an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem object whose `detail` says why:
+
+| Status | When |
+|---|---|
+| `400` | not exactly four letters, missing, or not JSON |
+| `422` | four letters, but not in the word list |
+| `409` | already guessed in this game, or the game is over |
 
 The frontend mirrors this: `/games/new` starts a game and replaces its own URL with
 `/games/{id}`, so refreshing the page resumes the same game.
