@@ -103,7 +103,7 @@ jobs:
           done
           curl -fsS http://localhost:8080/actuator/health
           echo
-          curl -fsS -o /dev/null -w 'POST /api/game -> %{http_code}' -X POST http://localhost:8080/api/game
+          curl -fsS -o /dev/null -w 'POST /api/games -> %{http_code}' -X POST http://localhost:8080/api/games
           echo
           user=$(docker inspect -f '{{.Config.User}}' backend)
           echo "runs as: $user"

@@ -1,69 +1,57 @@
 package com.zohebrahiman.cowsandbulls.controller;
 
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Optional;
+import java.util.UUID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.zohebrahiman.cowsandbulls.core.WordHelper;
-import com.zohebrahiman.cowsandbulls.model.Game;
-import com.zohebrahiman.cowsandbulls.model.GameRepository;
-import com.zohebrahiman.cowsandbulls.model.GuessRepository;
-import com.zohebrahiman.cowsandbulls.model.Secret;
-import com.zohebrahiman.cowsandbulls.model.SecretRepository;
+import com.zohebrahiman.cowsandbulls.api.GameResponse;
+import com.zohebrahiman.cowsandbulls.api.GuessRequest;
+import com.zohebrahiman.cowsandbulls.service.GameService;
 
+/**
+ * The whole public API. Every game is independent and addressed by an opaque
+ * ID; there is no way to list games, read or change a secret, or delete
+ * anything.
+ */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/games")
 public class GameController {
-	private final Logger log = LoggerFactory.getLogger(GameController.class);
 
-	private SecretRepository secretRepository;
-	private GuessRepository guessRepository;
-	private GameRepository gameRepository;
-	
-	public GameController(SecretRepository secretRepository, GuessRepository guessRepository,GameRepository gameRepository) {
-		this.secretRepository = secretRepository;
-		this.guessRepository = guessRepository;
-		this.gameRepository = gameRepository;
+	private final GameService games;
+
+	public GameController(GameService games) {
+		this.games = games;
 	}
 
-	@GetMapping("/game/{id}")
-	ResponseEntity<?> getGame(@PathVariable Long id) {
-		Optional<Game> game = gameRepository.findById(id);
-		return game.map(response -> ResponseEntity.ok().body(response))
-				.orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+	@PostMapping
+	public ResponseEntity<GameResponse> create() {
+		GameResponse game = games.create();
+		return ResponseEntity.created(location(game)).body(game);
 	}
 
-	@PostMapping("/game")
-	ResponseEntity<Game> createGame() throws URISyntaxException, IllegalAccessException {
-		log.info("Request to create game");
-
-		// Delete all existing List of Guesses
-		this.guessRepository.deleteAll();
-		// Create a new Secret
-		String secretName = WordHelper.getRandomSecret();
-		Secret secret = secretRepository.save(new Secret(secretName));
-		// Create a new Game
-		Game game = Game.builder().secret(secret).build();
-		Game result = gameRepository.save(game);
-		log.info("Created game {}", result);
-		return ResponseEntity.created(new URI("/api/game/" + result.getId())).body(result);
+	@GetMapping("/{id}")
+	public GameResponse get(@PathVariable UUID id) {
+		return games.get(id);
 	}
 
-	@DeleteMapping("/game/{id}")
-	public ResponseEntity<?> deleteGame(@PathVariable Long id) {
-		log.info("Request to delete game: {}", id);
-		gameRepository.deleteById(id);
-		return ResponseEntity.ok().build();
+	/**
+	 * Returns the whole updated game, so the client learns the score and
+	 * whether it has won from a single response.
+	 */
+	@PostMapping("/{id}/guesses")
+	public ResponseEntity<GameResponse> guess(@PathVariable UUID id, @RequestBody GuessRequest request) {
+		GameResponse game = games.guess(id, request.name());
+		return ResponseEntity.created(location(game)).body(game);
+	}
+
+	private static URI location(GameResponse game) {
+		return URI.create("/api/games/" + game.id());
 	}
 }

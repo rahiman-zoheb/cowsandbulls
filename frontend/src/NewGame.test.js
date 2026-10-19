@@ -1,0 +1,82 @@
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { currentPath, GAME_ID, gameResponse, jsonResponse, renderApp, silenceConsoleError } from './test-utils';
+
+const freshGame = gameResponse({ guesses: [] });
+
+beforeEach(() => {
+  global.fetch = jest.fn((url, options) => jsonResponse(freshGame, { status: options && options.method === 'POST' ? 201 : 200 }));
+});
+
+it('creates a game and replaces its own URL with the game\'s', async () => {
+  const { history } = renderApp('/games/new');
+
+  expect(screen.getByText('Starting a new game...')).toBeInTheDocument();
+  await waitFor(() => expect(currentPath()).toBe(`/games/${GAME_ID}`));
+
+  expect(global.fetch.mock.calls[0][0]).toBe('/api/games');
+  expect(global.fetch.mock.calls[0][1].method).toBe('POST');
+  // Replaced, not pushed: Back skips /games/new instead of creating another game.
+  expect(history.action).toBe('REPLACE');
+  expect(history.length).toBe(1);
+});
+
+it('hands over to the game page, which loads the game it just created', async () => {
+  renderApp('/games/new');
+
+  expect(await screen.findByText('No guesses yet.')).toBeInTheDocument();
+  expect(global.fetch.mock.calls.map(([url]) => url)).toEqual(['/api/games', `/api/games/${GAME_ID}`]);
+});
+
+describe('when the backend is unavailable', () => {
+  silenceConsoleError();
+
+  it('shows the failure and lets the player try again', async () => {
+    global.fetch = jest.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+    renderApp('/games/new');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/backend running/i);
+    expect(currentPath()).toBe('/games/new');
+
+    global.fetch = jest.fn(() => jsonResponse(freshGame, { status: 201 }));
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(currentPath()).toBe(`/games/${GAME_ID}`));
+  });
+});
+
+it('does not navigate or update state if the player leaves before the game is created', async () => {
+  const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  let resolveCreate;
+  global.fetch = jest.fn(() => new Promise(resolve => { resolveCreate = resolve; }));
+  const { history } = renderApp('/games/new');
+  await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+  act(() => history.push('/'));
+  await act(async () => {
+    resolveCreate({ ok: true, status: 201, json: () => Promise.resolve(freshGame) });
+  });
+
+  expect(currentPath()).toBe('/');
+  const unmountWarnings = consoleError.mock.calls.map(args => String(args[0])).filter(m => m.includes('unmounted component'));
+  expect(unmountWarnings).toEqual([]);
+  consoleError.mockRestore();
+});
+
+it('stays quiet if creation fails after the player has already left', async () => {
+  const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  let rejectCreate;
+  global.fetch = jest.fn(() => new Promise((_resolve, reject) => { rejectCreate = reject; }));
+  const { history } = renderApp('/games/new');
+  await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+  act(() => history.push('/'));
+  await act(async () => {
+    rejectCreate(new TypeError('Failed to fetch'));
+  });
+
+  expect(currentPath()).toBe('/');
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  const unmountWarnings = consoleError.mock.calls.map(args => String(args[0])).filter(m => m.includes('unmounted component'));
+  expect(unmountWarnings).toEqual([]);
+  consoleError.mockRestore();
+});

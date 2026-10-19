@@ -1,12 +1,14 @@
-import React from 'react';
-import { screen, waitFor, waitForElementToBeRemoved, fireEvent } from '@testing-library/react';
-import GuessList from './GuessList';
-import { errorResponse, jsonResponse, renderWithRouter, SAMPLE_GUESSES, silenceConsoleError } from './test-utils';
+import { act, screen, waitFor, waitForElementToBeRemoved, fireEvent } from '@testing-library/react';
+import {
+  currentPath, errorResponse, GAME_ID, gameResponse, jsonResponse, OTHER_GAME_ID, renderApp, silenceConsoleError,
+} from './test-utils';
+
+const GAME_PATH = `/games/${GAME_ID}`;
 
 // CRA sets resetMocks:true, which wipes any implementation assigned in
 // beforeAll or at module scope. It has to be set per test.
 beforeEach(() => {
-  global.fetch = jest.fn(() => jsonResponse(SAMPLE_GUESSES));
+  global.fetch = jest.fn(() => jsonResponse(gameResponse()));
 });
 
 function guessInput() {
@@ -23,94 +25,97 @@ function submitButton() {
   return screen.getByRole('button', { name: /submit/i });
 }
 
-async function renderLoaded() {
-  renderWithRouter(<GuessList />);
+const posts = () => global.fetch.mock.calls.filter(([, options]) => options && options.method === 'POST');
+
+async function renderLoaded(path = GAME_PATH) {
+  const rendered = renderApp(path);
   await waitForElementToBeRemoved(() => screen.queryByText('Loading...'));
+  return rendered;
 }
 
-describe('mount', () => {
-  it('shows a loading placeholder before the guesses arrive', () => {
-    renderWithRouter(<GuessList />);
+describe('loading a game', () => {
+  it('shows a loading placeholder and the navbar before the game arrives', () => {
+    renderApp(GAME_PATH);
     expect(screen.getByText('Loading...')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
-  });
-
-  it('keeps the navbar visible while loading so there is always a way out', () => {
-    renderWithRouter(<GuessList />);
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
   });
 
-  it('creates the game before fetching guesses', async () => {
+  it('reads the game named in the URL', async () => {
     await renderLoaded();
 
-    expect(global.fetch).toHaveBeenCalledTimes(2);
-    // Ordering matters: POST /api/game clears the list server-side, so a
-    // concurrent GET could observe either side of the reset.
-    expect(global.fetch.mock.calls[0][0]).toBe('/api/game');
-    expect(global.fetch.mock.calls[0][1].method).toBe('POST');
-    expect(global.fetch.mock.calls[1][0]).toBe('/api/guesses');
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch.mock.calls[0][0]).toBe(`/api/games/${GAME_ID}`);
   });
 
-  it('renders one row per guess with name, cows and bulls', async () => {
+  it('never creates a game, so refreshing resumes the same one', async () => {
+    // The old page called POST /api/game on every mount, and that endpoint
+    // deleted every guess, so a refresh silently threw your game away.
+    const { unmount } = await renderLoaded();
+    unmount();
+    await renderLoaded();
+
+    expect(posts()).toEqual([]);
+    expect(screen.getAllByRole('row')).toHaveLength(3);
+  });
+
+  it('renders one row per guess with attempt, word, cows and bulls', async () => {
     await renderLoaded();
 
     const rows = screen.getAllByRole('row');
-    expect(rows).toHaveLength(SAMPLE_GUESSES.length + 1); // + header row
-    expect(Array.from(rows[1].cells).map(cell => cell.textContent)).toEqual(['abcd', '1', '0']);
-    expect(Array.from(rows[2].cells).map(cell => cell.textContent)).toEqual(['quiz', '0', '2']);
+    expect(rows).toHaveLength(3); // + header row
+    expect(Array.from(rows[1].cells).map(cell => cell.textContent)).toEqual(['1', 'abcd', '1', '0']);
+    expect(Array.from(rows[2].cells).map(cell => cell.textContent)).toEqual(['2', 'quiz', '0', '2']);
   });
 
-  it('still renders rows when the backend omits the id', async () => {
-    // The real backend always sends an id, so this pins the key fallback rather
-    // than letting duplicate undefined keys silently drop rows.
-    global.fetch = jest.fn(() => jsonResponse([
-      { name: 'abcd', cows: 1, bulls: 0 },
-      { name: 'quiz', cows: 0, bulls: 2 },
-    ]));
-    await renderLoaded();
-
-    expect(screen.getAllByRole('row')).toHaveLength(3);
-    expect(screen.getByText('abcd')).toBeInTheDocument();
-    expect(screen.getByText('quiz')).toBeInTheDocument();
-  });
-
-  it('tells the user when there are no guesses yet', async () => {
-    global.fetch = jest.fn(() => jsonResponse([]));
+  it('tells the player when there are no guesses yet', async () => {
+    global.fetch = jest.fn(() => jsonResponse(gameResponse({ guesses: [] })));
     await renderLoaded();
 
     expect(screen.getByText('No guesses yet.')).toBeInTheDocument();
   });
+
+  it('offers a new game while playing', async () => {
+    await renderLoaded();
+
+    expect(screen.getByRole('link', { name: 'New game' })).toHaveAttribute('href', '/games/new');
+  });
 });
 
-describe('failure on mount', () => {
+describe('a game that cannot be loaded', () => {
   silenceConsoleError();
 
-  it('surfaces an error instead of hanging on the loading placeholder', async () => {
+  it('explains that an unknown or expired game is gone and offers a new one', async () => {
+    global.fetch = jest.fn(() => errorResponse(404));
+    await renderLoaded();
+
+    expect(screen.getByText(/doesn't exist, or it has expired/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'New game' })).toHaveAttribute('href', '/games/new');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('surfaces an error instead of hanging when the backend is unreachable', async () => {
     global.fetch = jest.fn(() => Promise.reject(new TypeError('Failed to fetch')));
-    renderWithRouter(<GuessList />);
+    renderApp(GAME_PATH);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/backend running/i);
-    // The old code only cleared isLoading inside the success path, so a dead
-    // backend left "Loading..." on screen forever.
     expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
   });
 
   it('surfaces an error when the backend returns a 500', async () => {
     global.fetch = jest.fn(() => errorResponse(500));
-    renderWithRouter(<GuessList />);
+    renderApp(GAME_PATH);
 
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
-    expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not load/i);
   });
 
-  it('does not crash when the payload is an error object rather than an array', async () => {
-    // Spring's error handler replies with JSON, so .json() resolved and the
-    // object used to be stored as the guess list and then .map()ed.
+  it('refuses to render a payload that is not a game', async () => {
     global.fetch = jest.fn(() => jsonResponse({ status: 500, error: 'Internal Server Error' }));
-    await renderLoaded();
+    renderApp(GAME_PATH);
 
-    expect(screen.getByText('No guesses yet.')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not load/i);
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 });
 
@@ -144,44 +149,45 @@ describe('validation', () => {
     expect(submitButton()).toBeDisabled();
   });
 
-  it('accepts uppercase input, which the backend cannot handle itself', async () => {
+  it('accepts uppercase input', async () => {
     await renderLoaded();
     typeGuess('GOLD');
 
     expect(guessInput()).toHaveClass('is-valid');
-    expect(submitButton()).toBeEnabled();
   });
 });
 
-describe('submit', () => {
+describe('submitting a guess', () => {
   silenceConsoleError();
 
-  it('posts the guess, refetches, and clears the field', async () => {
+  const afterGuess = gameResponse({
+    guesses: [...gameResponse().guesses, { attempt: 3, name: 'gold', cows: 0, bulls: 1 }],
+  });
+
+  it('posts to this game and renders the updated game it returns, without refetching', async () => {
     await renderLoaded();
     typeGuess('gold');
-    global.fetch.mockClear();
+    global.fetch = jest.fn(() => jsonResponse(afterGuess, { status: 201 }));
 
     fireEvent.click(submitButton());
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-    expect(global.fetch.mock.calls[0][0]).toBe('/api/guess');
-    expect(global.fetch.mock.calls[0][1].method).toBe('POST');
-    expect(global.fetch.mock.calls[0][1].body).toBe(JSON.stringify({ name: 'gold' }));
-    expect(global.fetch.mock.calls[1][0]).toBe('/api/guesses');
-    await waitFor(() => expect(guessInput()).toHaveValue(''));
+    await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(4));
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, options] = global.fetch.mock.calls[0];
+    expect(url).toBe(`/api/games/${GAME_ID}/guesses`);
+    expect(options.method).toBe('POST');
+    expect(options.body).toBe(JSON.stringify({ name: 'gold' }));
+    expect(guessInput()).toHaveValue('');
   });
 
   it('lowercases the guess before sending it', async () => {
     await renderLoaded();
     typeGuess('GOLD');
-    global.fetch.mockClear();
+    global.fetch = jest.fn(() => jsonResponse(afterGuess, { status: 201 }));
 
     fireEvent.click(submitButton());
 
-    // Uppercase reaches an unguarded charAt(i) - 'a' on the backend and 500s.
-    await waitFor(() => {
-      expect(global.fetch.mock.calls[0][1].body).toBe(JSON.stringify({ name: 'gold' }));
-    });
+    await waitFor(() => expect(global.fetch.mock.calls[0][1].body).toBe(JSON.stringify({ name: 'gold' })));
   });
 
   it('never posts an invalid guess, even if the form is submitted directly', async () => {
@@ -199,21 +205,20 @@ describe('submit', () => {
   it('posts only once when submit is clicked twice in a row', async () => {
     await renderLoaded();
     typeGuess('gold');
-    global.fetch.mockClear();
+    global.fetch = jest.fn(() => jsonResponse(afterGuess, { status: 201 }));
 
     const button = submitButton();
     fireEvent.click(button);
     fireEvent.click(button);
 
     await waitFor(() => expect(guessInput()).toHaveValue(''));
-    const guessPosts = global.fetch.mock.calls.filter(call => call[0] === '/api/guess');
-    expect(guessPosts).toHaveLength(1);
+    expect(posts()).toHaveLength(1);
   });
 
   it('ignores a second submit while the first is still in flight', async () => {
     await renderLoaded();
     typeGuess('gold');
-    global.fetch.mockClear();
+    global.fetch = jest.fn(() => jsonResponse(afterGuess, { status: 201 }));
 
     // The disabled button already blocks a second click, so this goes straight
     // at the form the way the Enter key does, to exercise the in-flight guard.
@@ -222,14 +227,13 @@ describe('submit', () => {
     fireEvent.submit(form);
 
     await waitFor(() => expect(guessInput()).toHaveValue(''));
-    const guessPosts = global.fetch.mock.calls.filter(call => call[0] === '/api/guess');
-    expect(guessPosts).toHaveLength(1);
+    expect(posts()).toHaveLength(1);
   });
 
   it('keeps the typed guess and reports the failure when the post fails', async () => {
     await renderLoaded();
     typeGuess('gold');
-    global.fetch.mockReturnValue(errorResponse(500));
+    global.fetch = jest.fn(() => errorResponse(500));
 
     fireEvent.click(submitButton());
 
@@ -239,49 +243,86 @@ describe('submit', () => {
   });
 });
 
-describe('concurrent loads', () => {
-  it('ignores a stale guess list that resolves after a newer one', async () => {
-    // The in-flight submit guard serializes the UI paths, so this drives the
-    // component directly to pin the latest-wins rule against future callers
-    // (a refresh button, polling) that could overlap two loads.
-    const listRef = React.createRef();
-    global.fetch = jest.fn(() => jsonResponse([]));
-    renderWithRouter(<GuessList ref={listRef} />);
-    await waitForElementToBeRemoved(() => screen.queryByText('Loading...'));
+describe('winning', () => {
+  const won = gameResponse({
+    status: 'WON',
+    answer: 'gold',
+    guesses: [...gameResponse().guesses, { attempt: 3, name: 'gold', cows: 0, bulls: 4 }],
+  });
 
-    let resolveStale;
-    global.fetch = jest
-      .fn()
-      .mockReturnValueOnce(new Promise(resolve => { resolveStale = resolve; }))
-      .mockReturnValueOnce(jsonResponse(SAMPLE_GUESSES));
+  it('shows the answer and attempt count, and replaces the form with a new-game button', async () => {
+    await renderLoaded();
+    typeGuess('gold');
+    global.fetch = jest.fn(() => jsonResponse(won, { status: 201 }));
 
-    const stale = listRef.current.loadGuesses();
-    const fresh = listRef.current.loadGuesses();
+    fireEvent.click(submitButton());
 
-    await fresh;
-    resolveStale({ ok: true, status: 200, json: () => Promise.resolve([]) });
-    await stale;
+    expect(await screen.findByText(/you got it in 3 guesses/i)).toHaveTextContent('The word was gold.');
+    expect(screen.queryByLabelText(/your guess/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'New game' })).toHaveAttribute('href', '/games/new');
+    expect(screen.getAllByRole('row')).toHaveLength(4);
+  });
 
-    // The older, now-empty response must not overwrite the newer list.
-    await waitFor(() => expect(screen.getByText('abcd')).toBeInTheDocument());
-    expect(screen.queryByText('No guesses yet.')).not.toBeInTheDocument();
+  it('shows the win when an already-won game is reopened', async () => {
+    global.fetch = jest.fn(() => jsonResponse(won));
+    await renderLoaded();
+
+    expect(screen.getByText(/you got it in 3 guesses/i)).toBeInTheDocument();
+  });
+
+  it('says "guess" for a first-try win', async () => {
+    global.fetch = jest.fn(() => jsonResponse(gameResponse({
+      status: 'WON', answer: 'gold', guesses: [{ attempt: 1, name: 'gold', cows: 0, bulls: 4 }],
+    })));
+    await renderLoaded();
+
+    expect(screen.getByText(/you got it in 1 guess!/i)).toBeInTheDocument();
+  });
+});
+
+describe('navigation', () => {
+  it('loads the new game when the URL changes to another game', async () => {
+    const { history } = await renderLoaded();
+    global.fetch = jest.fn(() => jsonResponse(gameResponse({ id: OTHER_GAME_ID, guesses: [] })));
+
+    act(() => history.push(`/games/${OTHER_GAME_ID}`));
+
+    expect(await screen.findByText('No guesses yet.')).toBeInTheDocument();
+    expect(global.fetch.mock.calls[0][0]).toBe(`/api/games/${OTHER_GAME_ID}`);
+    expect(currentPath()).toBe(`/games/${OTHER_GAME_ID}`);
+  });
+
+  it('ignores a slow response for a game the player has already left', async () => {
+    let resolveFirst;
+    global.fetch = jest.fn()
+      .mockReturnValueOnce(new Promise(resolve => { resolveFirst = resolve; }))
+      .mockReturnValueOnce(jsonResponse(gameResponse({ id: OTHER_GAME_ID, guesses: [] })));
+    const { history } = renderApp(GAME_PATH);
+
+    act(() => history.push(`/games/${OTHER_GAME_ID}`));
+    await screen.findByText('No guesses yet.');
+    await act(async () => {
+      resolveFirst({ ok: true, status: 200, json: () => Promise.resolve(gameResponse()) });
+    });
+
+    // The first game's two guesses must not replace the second game's empty list.
+    expect(screen.getByText('No guesses yet.')).toBeInTheDocument();
+    expect(screen.queryByText('abcd')).not.toBeInTheDocument();
   });
 });
 
 describe('unmounting', () => {
   it('does not warn about setting state after unmount', async () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
-    let resolveGuesses;
-    global.fetch = jest
-      .fn()
-      .mockReturnValueOnce(jsonResponse({ id: 1 }, { status: 201 }))
-      .mockReturnValueOnce(new Promise(resolve => { resolveGuesses = resolve; }));
+    let resolveGame;
+    global.fetch = jest.fn(() => new Promise(resolve => { resolveGame = resolve; }));
 
-    const { unmount } = renderWithRouter(<GuessList />);
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    const { unmount } = renderApp(GAME_PATH);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
     unmount();
-    resolveGuesses({ ok: true, status: 200, json: () => Promise.resolve(SAMPLE_GUESSES) });
-    await waitFor(() => {});
+    await act(async () => {
+      resolveGame({ ok: true, status: 200, json: () => Promise.resolve(gameResponse()) });
+    });
 
     const unmountWarnings = consoleError.mock.calls
       .map(args => String(args[0]))

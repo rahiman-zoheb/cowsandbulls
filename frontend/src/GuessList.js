@@ -1,21 +1,25 @@
 import React, { Component } from 'react';
+import { Link } from 'react-router-dom';
 import { Alert, Button, Container, Table, Form, FormFeedback, FormGroup, Input, Label } from 'reactstrap';
 import AppNavbar from './AppNavbar';
-import { createGame, fetchGuesses, isValidGuess, normalizeGuess, submitGuess } from './api';
+import { fetchGame, isValidGuess, normalizeGuess, submitGuess } from './api';
 
 const EMPTY_ITEM = { name: '' };
 
 const INVALID_GUESS_MESSAGE = 'Please provide a valid 4 letter word';
 
+// Plays the game named in the URL. Loading never creates a game, so a refresh
+// resumes where you left off; only NewGame (/games/new) starts one.
 class GuessList extends Component {
 
   constructor(props) {
     super(props);
     this.state = {
-      guesses: [],
+      game: null,
       item: { ...EMPTY_ITEM },
       isLoading: true,
       isSubmitting: false,
+      notFound: false,
       // Blank until the field is touched, so an untouched input shows neither
       // the valid nor the invalid style.
       touched: false,
@@ -23,29 +27,30 @@ class GuessList extends Component {
     };
 
     this.mounted = false;
-    // Guards against an older GET landing after a newer one and reinstating a
-    // stale list.
-    this.latestRequest = 0;
 
-    this.loadGuesses = this.loadGuesses.bind(this);
     this.handleChange = this.handleChange.bind(this);
     this.handleSubmit = this.handleSubmit.bind(this);
   }
 
-  async componentDidMount() {
+  componentDidMount() {
     this.mounted = true;
-    try {
-      // POST /api/game clears the list server-side, so it has to finish before
-      // the list is read or the two race and the initial table is arbitrary.
-      await createGame();
-      await this.loadGuesses();
-    } catch (error) {
-      this.fail('Could not start a new game. Is the backend running?', error);
+    this.load();
+  }
+
+  componentDidUpdate(previous) {
+    // Navigating straight from one game's URL to another keeps this component
+    // mounted, so the new game has to be loaded here.
+    if (previous.match.params.gameId !== this.gameId()) {
+      this.load();
     }
   }
 
   componentWillUnmount() {
     this.mounted = false;
+  }
+
+  gameId() {
+    return this.props.match.params.gameId;
   }
 
   // setState is a no-op warning once the router has unmounted this component,
@@ -62,13 +67,23 @@ class GuessList extends Component {
     this.setStateIfMounted({ isLoading: false, isSubmitting: false, error: message });
   }
 
-  async loadGuesses() {
-    const request = ++this.latestRequest;
-    const guesses = await fetchGuesses();
-    if (request === this.latestRequest) {
-      this.setStateIfMounted({ guesses, isLoading: false, error: null });
+  async load() {
+    const gameId = this.gameId();
+    this.setState({ game: null, isLoading: true, notFound: false, error: null, item: { ...EMPTY_ITEM }, touched: false });
+    try {
+      const game = await fetchGame(gameId);
+      // A slower response for a game we've since navigated away from must not
+      // overwrite the current one.
+      if (gameId === this.gameId()) {
+        this.setStateIfMounted({ game, isLoading: false });
+      }
+    } catch (error) {
+      if (error.status === 404) {
+        this.setStateIfMounted({ isLoading: false, notFound: true });
+      } else {
+        this.fail('Could not load this game. Is the backend running?', error);
+      }
     }
-    return guesses;
   }
 
   handleChange(event) {
@@ -84,8 +99,8 @@ class GuessList extends Component {
 
     const { item, isSubmitting } = this.state;
 
-    // The backend answers an invalid guess with an opaque 500, so it never gets
-    // sent in the first place.
+    // The server rejects malformed guesses; checking here avoids the round
+    // trip and gives the player the reason straight away.
     if (!isValidGuess(item.name)) {
       this.setState({ touched: true, error: INVALID_GUESS_MESSAGE });
       return;
@@ -99,29 +114,90 @@ class GuessList extends Component {
     this.setState({ isSubmitting: true, error: null });
 
     try {
-      await submitGuess(item.name);
-      await this.loadGuesses();
-      this.setStateIfMounted({ item: { ...EMPTY_ITEM }, touched: false, isSubmitting: false });
+      // The response is the whole updated game, so no second request is needed.
+      const game = await submitGuess(this.gameId(), item.name);
+      this.setStateIfMounted({ game, item: { ...EMPTY_ITEM }, touched: false, isSubmitting: false });
     } catch (error) {
       this.fail('Could not submit your guess. Please try again.', error);
     }
   }
 
-  renderGuessRows() {
-    return this.state.guesses.map((guess, index) => (
-      <tr key={guess.id != null ? guess.id : `${index}-${guess.name}`}>
-        <td style={{whiteSpace: 'nowrap'}}>{guess.name}</td>
-        <td style={{whiteSpace: 'nowrap'}}>{guess.cows}</td>
-        <td style={{whiteSpace: 'nowrap'}}>{guess.bulls}</td>
-      </tr>
-    ));
+  renderNewGameButton(color = 'secondary') {
+    return <Button color={color} tag={Link} to="/games/new">New game</Button>;
+  }
+
+  renderForm() {
+    const { item, isSubmitting, touched } = this.state;
+    const showValidity = touched && normalizeGuess(item.name).length > 0;
+    const guessIsValid = isValidGuess(item.name);
+
+    return (
+      <Form onSubmit={this.handleSubmit}>
+        <FormGroup className="mb-3">
+          <Label for="name">Your guess (4 letters)</Label>
+          <Input type="text" name="name" id="name" value={item.name}
+                onChange={this.handleChange} autoComplete="off" maxLength={4}
+                placeholder="Guess a 4 letter word"
+                disabled={isSubmitting}
+                valid={showValidity && guessIsValid}
+                invalid={showValidity && !guessIsValid}
+          />
+          <FormFeedback>{INVALID_GUESS_MESSAGE}</FormFeedback>
+        </FormGroup>
+        <FormGroup className="mb-3">
+          <Button color="primary" type="submit" className="me-2" disabled={isSubmitting || !guessIsValid}>
+            {isSubmitting ? 'Submitting...' : 'Submit'}
+          </Button>
+          {this.renderNewGameButton()}
+        </FormGroup>
+      </Form>
+    );
+  }
+
+  renderWin(game) {
+    const attempts = game.guesses.length;
+    return (
+      <>
+        <Alert color="success" className="mt-3">
+          You got it in {attempts} {attempts === 1 ? 'guess' : 'guesses'}! The word was <strong>{game.answer}</strong>.
+        </Alert>
+        {this.renderNewGameButton('primary')}
+      </>
+    );
+  }
+
+  renderGuesses(game) {
+    return (
+      <Container fluid className="mt-4">
+        <h3>My guesses</h3>
+        <Table className="mt-4">
+          <thead>
+          <tr>
+            <th style={{width: '10%'}}>#</th>
+            <th style={{width: '40%'}}>Word</th>
+            <th style={{width: '25%'}}>Cows (Right letter, Wrong place)</th>
+            <th style={{width: '25%'}}>Bulls (Right letter, Right place)</th>
+          </tr>
+          </thead>
+          <tbody>
+          {game.guesses.length === 0 ? (
+            <tr><td colSpan={4}>No guesses yet.</td></tr>
+          ) : game.guesses.map(guess => (
+            <tr key={guess.attempt}>
+              <td>{guess.attempt}</td>
+              <td style={{whiteSpace: 'nowrap'}}>{guess.name}</td>
+              <td style={{whiteSpace: 'nowrap'}}>{guess.cows}</td>
+              <td style={{whiteSpace: 'nowrap'}}>{guess.bulls}</td>
+            </tr>
+          ))}
+          </tbody>
+        </Table>
+      </Container>
+    );
   }
 
   render() {
-    const {guesses, item, isLoading, isSubmitting, touched, error} = this.state;
-
-    const showValidity = touched && normalizeGuess(item.name).length > 0;
-    const guessIsValid = isValidGuess(item.name);
+    const { game, isLoading, notFound, error } = this.state;
 
     return (
       <div>
@@ -130,46 +206,20 @@ class GuessList extends Component {
         <Container>
           {error && <Alert color="danger" className="mt-3">{error}</Alert>}
 
-          {isLoading ? (
-            <p className="mt-3" role="status">Loading...</p>
-          ) : (
-            <Form onSubmit={this.handleSubmit}>
-              <FormGroup className="mb-3">
-                <Label for="name">Your guess (4 letters)</Label>
-                <Input type="text" name="name" id="name" value={item.name}
-                      onChange={this.handleChange} autoComplete="off" maxLength={4}
-                      placeholder="Guess a 4 letter word"
-                      disabled={isSubmitting}
-                      valid={showValidity && guessIsValid}
-                      invalid={showValidity && !guessIsValid}
-                />
-                <FormFeedback>{INVALID_GUESS_MESSAGE}</FormFeedback>
-              </FormGroup>
-              <FormGroup className="mb-3">
-                <Button color="primary" type="submit" disabled={isSubmitting || !guessIsValid}>
-                  {isSubmitting ? 'Submitting...' : 'Submit'}
-                </Button>
-              </FormGroup>
-            </Form>
+          {isLoading && <p className="mt-3" role="status">Loading...</p>}
+
+          {notFound && (
+            <>
+              <Alert color="warning" className="mt-3">
+                This game doesn't exist, or it has expired.
+              </Alert>
+              {this.renderNewGameButton('primary')}
+            </>
           )}
+
+          {game && (game.status === 'WON' ? this.renderWin(game) : this.renderForm())}
         </Container>
-        {!isLoading && <Container fluid>
-          <h3>My guesses</h3>
-          <Table className="mt-4">
-            <thead>
-            <tr>
-              <th style={{width: '50%'}}>Word</th>
-              <th style={{width: '25%'}}>Cows (Right letter, Wrong place)</th>
-              <th style={{width: '25%'}}>Bulls (Right letter, Right place)</th>
-            </tr>
-            </thead>
-            <tbody>
-            {guesses.length === 0 ? (
-              <tr><td colSpan={3}>No guesses yet.</td></tr>
-            ) : this.renderGuessRows()}
-            </tbody>
-          </Table>
-        </Container>}
+        {game && this.renderGuesses(game)}
       </div>
     );
   }

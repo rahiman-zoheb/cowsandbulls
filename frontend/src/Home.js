@@ -10,7 +10,9 @@ class Home extends Component {
       <div>
         <AppNavbar/>
         <Container fluid>
-          <Button color="link"><Link to="/guesses">Play A Game</Link></Button>
+          {/* Rendered as the link itself: a <Link> nested inside a <button> is
+              invalid HTML and puts two controls in the tab order for one action. */}
+          <Button color="primary" className="mt-3" tag={Link} to="/games/new">Play A Game</Button>
         </Container>
       </div>
     );
