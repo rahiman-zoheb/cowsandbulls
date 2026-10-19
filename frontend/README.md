@@ -60,12 +60,11 @@ You can learn more in the [Create React App documentation](https://facebook.gith
 To learn React, check out the [React documentation](https://reactjs.org/).
 
 ## Steps to set up
-### Run back end app
-+ Clone the repository [cowsandbulls](https://github.com/rahiman-zoheb/cowsandbulls)
-+ Run it so that it is available on 127.0.0.1:8080 (proxy set up)
-### Run front end app
-+ Clone the repository [cowsandbulls_reactjs](https://github.com/rahiman-zoheb/cowsandbulls_reactjs)
-+ Run `npm install`
+This app lives in the `frontend/` directory of the
+[cowsandbulls](https://github.com/rahiman-zoheb/cowsandbulls) repository, next to the backend.
+See the [root README](../README.md) for running both together.
++ Start the backend so it is available on 127.0.0.1:8080 (the dev server proxies `/api` there)
++ From `frontend/`, run `npm install`
 + Run `npm start`
 
 All backend calls go through `src/api.js`, which prefixes them with `/api` by
@@ -77,5 +76,5 @@ server, so a production build needs either this variable or a reverse proxy.
 ## Dockerized Run
 ### Dockerfile options
 IMPORTANT: Dockerization is working, but since the app is not pointing to backend service yet, it will not connect
-+ Run `docker build -t zohebrahiman/cowsandbulls_reactjs .` -> Build docker image
++ From `frontend/`, run `docker build -t zohebrahiman/cowsandbulls_reactjs .` -> Build docker image
 + Run `docker run -ti --rm -v ${PWD}:/app -v /app/node_modules -p 3001:3000 -e CHOKIDAR_USEPOLLING=true zohebrahiman/cowsandbulls_reactjs` -> Run a container

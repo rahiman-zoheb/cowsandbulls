@@ -1,0 +1,7 @@
+# Each app keeps its own .gitignore (backend/, frontend/). This one covers
+# editor and OS files created when the repository root is opened as a project.
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
