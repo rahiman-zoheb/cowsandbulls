@@ -8,7 +8,7 @@ This repository holds both halves of the game:
 
 | Directory | What it is | Stack |
 |---|---|---|
-| [`backend/`](backend/) | REST API that picks the secret and scores guesses | Spring Boot 2.3, Java 8+, H2 |
+| [`backend/`](backend/) | REST API that picks the secret and scores guesses | Spring Boot 4.1, Java 17+, H2 |
 | [`frontend/`](frontend/) | Browser UI | React 16, Create React App, reactstrap |
 
 The frontend used to live in
@@ -44,10 +44,10 @@ then reports a single `ci-success` check. That is the only check branch protecti
 
 ## Docker
 
-`docker-compose up --build` runs the backend. It currently needs the jar built first
-(`cd backend && ./mvnw package`), which is
-[#24](https://github.com/rahiman-zoheb/cowsandbulls/issues/24). The frontend image is
-described in [`frontend/README.md`](frontend/README.md).
+`docker-compose up --build` builds and runs the backend; the image compiles the jar itself, so
+nothing needs building first. CI builds the same image on every backend change and
+smoke-tests the running container. The frontend image is described in
+[`frontend/README.md`](frontend/README.md).
 
 ## Known issues
 
