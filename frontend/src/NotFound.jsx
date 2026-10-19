@@ -1,4 +1,3 @@
-import { Container } from 'reactstrap';
 import { Link } from 'react-router-dom';
 import AppNavbar from './AppNavbar';
 
@@ -7,10 +6,10 @@ import AppNavbar from './AppNavbar';
 const NotFound = () => (
   <div>
     <AppNavbar/>
-    <Container className="mt-3">
-      <h3>Page not found</h3>
+    <main className="container mt-3">
+      <h1>Page not found</h1>
       <p>That page does not exist. <Link to="/">Go back home</Link>.</p>
-    </Container>
+    </main>
   </div>
 );
 

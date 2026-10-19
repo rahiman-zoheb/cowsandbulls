@@ -19,10 +19,10 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="container mt-3">
-          <h3>Something went wrong</h3>
+        <main className="container mt-3">
+          <h1>Something went wrong</h1>
           <p>Please reload the page to keep playing.</p>
-        </div>
+        </main>
       );
     }
     return this.props.children;

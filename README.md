@@ -9,7 +9,7 @@ This repository holds both halves of the game:
 | Directory | What it is | Stack |
 |---|---|---|
 | [`backend/`](backend/) | REST API that picks the secret and scores guesses | Spring Boot 4.1, Java 17+, H2 |
-| [`frontend/`](frontend/) | Browser UI | React 16, Vite, reactstrap |
+| [`frontend/`](frontend/) | Browser UI | React 16, Vite, Bootstrap 5 |
 
 The frontend used to live in
 [cowsandbulls_reactjs](https://github.com/rahiman-zoheb/cowsandbulls_reactjs); its full

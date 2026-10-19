@@ -1,4 +1,5 @@
 import { act, screen, waitFor, waitForElementToBeRemoved, fireEvent } from '@testing-library/react';
+import { describeGuess } from './GuessList';
 import {
   currentPath, errorResponse, GAME_ID, gameResponse, jsonResponse, OTHER_GAME_ID, renderApp, silenceConsoleError,
 } from './test-utils';
@@ -340,6 +341,80 @@ describe('running out of guesses', () => {
     fireEvent.click(submitButton());
 
     expect(await screen.findByText(/out of guesses/i)).toBeInTheDocument();
+  });
+});
+
+describe('accessibility', () => {
+  const afterGuess = gameResponse({
+    attemptsLeft: 17,
+    guesses: [...gameResponse().guesses, { attempt: 3, name: 'fork', cows: 0, bulls: 1 }],
+  });
+  const liveRegion = () => document.querySelector('[aria-live="polite"]');
+
+  it('announces the score of each guess to screen readers', async () => {
+    await renderLoaded();
+    expect(liveRegion()).toHaveTextContent('');
+    typeGuess('fork');
+    globalThis.fetch = vi.fn(() => jsonResponse(afterGuess, { status: 201 }));
+
+    fireEvent.click(submitButton());
+
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('fork: 0 cows, 1 bull. 17 guesses left.'));
+  });
+
+  it('puts focus back in the input after a guess, so the next one can be typed', async () => {
+    await renderLoaded();
+    typeGuess('fork');
+    globalThis.fetch = vi.fn(() => jsonResponse(afterGuess, { status: 201 }));
+
+    fireEvent.click(submitButton());
+
+    // The input is disabled while submitting, which drops focus.
+    await waitFor(() => expect(guessInput()).toHaveFocus());
+  });
+
+  it('puts focus back in the input after a rejected guess, so it can be corrected', async () => {
+    await renderLoaded();
+    typeGuess('qqqq');
+    globalThis.fetch = vi.fn(() => jsonResponse({ status: 422, detail: "'qqqq' is not in the word list" }, { ok: false, status: 422 }));
+
+    fireEvent.click(submitButton());
+
+    await screen.findByRole('alert');
+    await waitFor(() => expect(guessInput()).toHaveFocus());
+  });
+
+  it('marks the input invalid and describes it with the error and guesses left', async () => {
+    await renderLoaded();
+    expect(guessInput()).toHaveAttribute('aria-invalid', 'false');
+
+    typeGuess('ab1');
+
+    expect(guessInput()).toHaveAttribute('aria-invalid', 'true');
+    const describedBy = guessInput().getAttribute('aria-describedby').split(' ').map(id => document.getElementById(id));
+    expect(describedBy.map(el => el.textContent)).toEqual(['Please provide a valid 4 letter word', '18 guesses left']);
+  });
+
+  it('does not announce on a win; the win message itself is a status', async () => {
+    await renderLoaded();
+    typeGuess('fork');
+    globalThis.fetch = vi.fn(() => jsonResponse(
+      gameResponse({ status: 'WON', answer: 'fork', attemptsLeft: 0 }), { status: 201 }));
+
+    fireEvent.click(submitButton());
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/you got it/i);
+    expect(liveRegion()).toHaveTextContent('');
+  });
+});
+
+describe('describeGuess', () => {
+  it.each([
+    [{ name: 'fork', cows: 0, bulls: 1 }, 17, 'fork: 0 cows, 1 bull. 17 guesses left.'],
+    [{ name: 'bros', cows: 1, bulls: 2 }, 1, 'bros: 1 cow, 2 bulls. 1 guess left.'],
+    [{ name: 'quiz', cows: 4, bulls: 0 }, 0, 'quiz: 4 cows, 0 bulls. 0 guesses left.'],
+  ])('describes %o with %i left', (latest, attemptsLeft, expected) => {
+    expect(describeGuess({ attemptsLeft, guesses: [{ name: 'xxxx', cows: 0, bulls: 0 }, latest] })).toBe(expected);
   });
 });
 
