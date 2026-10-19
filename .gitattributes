@@ -1,0 +1,8 @@
+# Shell scripts run inside Linux containers and CI, so they must keep LF even
+# in Windows checkouts with core.autocrlf=true. A CRLF shebang fails with
+# "/bin/sh^M: bad interpreter".
+mvnw      text eol=lf
+*.sh      text eol=lf
+
+# The Windows wrapper is the opposite case.
+mvnw.cmd  text eol=crlf

@@ -54,9 +54,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 8 is the language level the pom targets; 17 and 21 prove the build
-        # isn't pinned to an EOL JDK.
-        java-version: ['8', '17', '21']
+        # 17 is the language level and Spring Boot 4's minimum; 21 and 25 are
+        # the current LTS releases.
+        java-version: ['17', '21', '25']
     defaults:
       run:
         working-directory: backend
@@ -81,6 +81,37 @@ jobs:
           name: surefire-reports-java-${{ matrix.java-version }}
           path: backend/target/surefire-reports/
           if-no-files-found: ignore
+
+  # Builds the image from a clean checkout and smoke-tests the container, so
+  # the Dockerfile can't silently depend on a locally built jar again (#24).
+  backend-image:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t cowsandbulls-backend:ci backend
+
+      - name: Smoke-test the container
+        run: |
+          docker run -d --name backend -p 8080:8080 cowsandbulls-backend:ci
+          for _ in $(seq 1 60); do
+            curl -fsS http://localhost:8080/actuator/health 2>/dev/null | grep -q '"UP"' && break
+            sleep 2
+          done
+          curl -fsS http://localhost:8080/actuator/health
+          echo
+          curl -fsS -o /dev/null -w 'POST /api/game -> %{http_code}' -X POST http://localhost:8080/api/game
+          echo
+          user=$(docker inspect -f '{{.Config.User}}' backend)
+          echo "runs as: $user"
+          test "$user" = "spring:spring"
+
+      - name: Container logs
+        if: failure()
+        run: docker logs backend
 
   frontend:
     needs: changes
@@ -122,14 +153,14 @@ jobs:
   # jobs; skipped counts as success, failed or cancelled does not.
   ci-success:
     if: always()
-    needs: [changes, backend, frontend]
+    needs: [changes, backend, backend-image, frontend]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any job failed or was cancelled
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: |
-          echo "changes=${{ needs.changes.result }} backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }}"
+          echo "changes=${{ needs.changes.result }} backend=${{ needs.backend.result }} backend-image=${{ needs.backend-image.result }} frontend=${{ needs.frontend.result }}"
           exit 1
 
       - name: Summary
-        run: echo "changes=${{ needs.changes.result }} backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }}"
+        run: echo "changes=${{ needs.changes.result }} backend=${{ needs.backend.result }} backend-image=${{ needs.backend-image.result }} frontend=${{ needs.frontend.result }}"

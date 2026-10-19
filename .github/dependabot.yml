@@ -26,9 +26,6 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
-      # 2.3 -> 2.7 counts as "minor", but it's the first leg of the deliberate
-      # Spring Boot upgrade in #21. Remove this entry when that lands.
-      - dependency-name: org.springframework.boot:spring-boot-starter-parent
 
   - package-ecosystem: github-actions
     directory: /
