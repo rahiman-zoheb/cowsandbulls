@@ -23,6 +23,17 @@ class WordListTest {
 	}
 
 	@Test
+	void theDictionaryHoldsEveryFourLetterWordIncludingRepeatedLetters() throws IOException {
+		WordList words = new WordList();
+
+		assertThat(words.dictionary()).hasSize(3919).containsAll(words.secrets());
+		assertThat(words.isWord("book")).as("repeated letters are legal guesses").isTrue();
+		assertThat(words.isWord("bros")).isTrue();
+		assertThat(words.isWord("qqqq")).isFalse();
+		assertThat(words.secrets()).doesNotContain("book");
+	}
+
+	@Test
 	void randomSecretsComeFromTheListAndVary() throws IOException {
 		WordList words = new WordList();
 		Set<String> drawn = new HashSet<>();

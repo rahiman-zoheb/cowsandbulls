@@ -10,15 +10,16 @@ import com.zohebrahiman.cowsandbulls.model.Guess;
 
 /**
  * Everything a client may know about a game. There is no secret field:
- * {@code answer} is null until the game is won.
+ * {@code answer} is null until the game is won or lost.
  */
-public record GameResponse(UUID id, GameStatus status, List<GuessResponse> guesses, String answer) {
+public record GameResponse(UUID id, GameStatus status, List<GuessResponse> guesses, int attemptsLeft, String answer) {
 
 	public static GameResponse of(Game game) {
 		List<Guess> made = game.getGuesses();
 		List<GuessResponse> guesses = IntStream.range(0, made.size())
 				.mapToObj(i -> GuessResponse.of(i + 1, made.get(i)))
 				.toList();
-		return new GameResponse(game.getId(), game.getStatus(), guesses, game.revealedSecret().orElse(null));
+		return new GameResponse(game.getId(), game.getStatus(), guesses, game.attemptsLeft(),
+				game.revealedSecret().orElse(null));
 	}
 }

@@ -21,12 +21,18 @@ import jakarta.persistence.Version;
 
 /**
  * One player's game. The secret never leaves this class except through
- * {@link #revealedSecret()}, which only returns it once the game is won.
+ * {@link #revealedSecret()}, which only returns it once the game is over.
  */
 @Entity
 public class Game {
 
 	public static final int WORD_LENGTH = 4;
+
+	/**
+	 * Generous for a four-letter word, and it also caps how many rows a single
+	 * game can ever create.
+	 */
+	public static final int MAX_ATTEMPTS = 20;
 
 	/**
 	 * Random, so game IDs can't be enumerated the way sequential ones could.
@@ -69,25 +75,43 @@ public class Game {
 	}
 
 	/**
-	 * Scores a guess against the secret and records it.
+	 * Scores a guess against the secret and records it. The caller is
+	 * responsible for checking the word is well-formed and in the dictionary.
 	 *
-	 * @throws GameOverException if the game has already been won
+	 * @throws GameOverException if the game is already won or lost
+	 * @throws DuplicateGuessException if this word was already guessed
 	 */
 	public Guess guess(String word) {
-		if (status != GameStatus.IN_PROGRESS) {
-			throw new GameOverException(id);
+		requireInProgress();
+		if (guesses.stream().anyMatch(previous -> previous.getName().equals(word))) {
+			throw new DuplicateGuessException(word);
 		}
 		int[] cowsAndBulls = Calculator.calculate(secret, word);
 		Guess guess = new Guess(this, word, cowsAndBulls[0], cowsAndBulls[1]);
 		guesses.add(guess);
 		if (guess.getBulls() == WORD_LENGTH) {
 			status = GameStatus.WON;
+		} else if (guesses.size() >= MAX_ATTEMPTS) {
+			status = GameStatus.LOST;
 		}
 		return guess;
 	}
 
+	/**
+	 * @throws GameOverException if the game is already won or lost
+	 */
+	public void requireInProgress() {
+		if (status != GameStatus.IN_PROGRESS) {
+			throw new GameOverException(id);
+		}
+	}
+
+	public int attemptsLeft() {
+		return status == GameStatus.IN_PROGRESS ? MAX_ATTEMPTS - guesses.size() : 0;
+	}
+
 	public Optional<String> revealedSecret() {
-		return status == GameStatus.WON ? Optional.of(secret) : Optional.empty();
+		return status == GameStatus.IN_PROGRESS ? Optional.empty() : Optional.of(secret);
 	}
 
 	public UUID getId() {

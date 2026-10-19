@@ -75,6 +75,19 @@ describe('loading a game', () => {
     expect(screen.getByText('No guesses yet.')).toBeInTheDocument();
   });
 
+  it('shows how many guesses are left', async () => {
+    await renderLoaded();
+
+    expect(screen.getByText('18 guesses left')).toBeInTheDocument();
+  });
+
+  it('says "guess" when one is left', async () => {
+    global.fetch = jest.fn(() => jsonResponse(gameResponse({ attemptsLeft: 1 })));
+    await renderLoaded();
+
+    expect(screen.getByText('1 guess left')).toBeInTheDocument();
+  });
+
   it('offers a new game while playing', async () => {
     await renderLoaded();
 
@@ -230,6 +243,31 @@ describe('submitting a guess', () => {
     expect(posts()).toHaveLength(1);
   });
 
+  it.each([
+    [422, "'gold' is not in the word list"],
+    [409, "You already guessed 'gold'"],
+  ])("shows the server's reason for a %i and keeps the guess to correct", async (status, detail) => {
+    await renderLoaded();
+    typeGuess('gold');
+    global.fetch = jest.fn(() => jsonResponse({ status, detail }, { ok: false, status }));
+
+    fireEvent.click(submitButton());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(detail);
+    expect(guessInput()).toHaveValue('gold');
+    expect(submitButton()).toBeEnabled();
+  });
+
+  it('falls back to a generic message when a rejection has no reason', async () => {
+    await renderLoaded();
+    typeGuess('gold');
+    global.fetch = jest.fn(() => Promise.resolve({ ok: false, status: 422, json: () => Promise.resolve({}) }));
+
+    fireEvent.click(submitButton());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not submit/i);
+  });
+
   it('keeps the typed guess and reports the failure when the post fails', async () => {
     await renderLoaded();
     typeGuess('gold');
@@ -277,6 +315,30 @@ describe('winning', () => {
     await renderLoaded();
 
     expect(screen.getByText(/you got it in 1 guess!/i)).toBeInTheDocument();
+  });
+});
+
+describe('running out of guesses', () => {
+  const lost = gameResponse({ status: 'LOST', answer: 'gold', attemptsLeft: 0 });
+
+  it('reveals the answer and offers a new game instead of the form', async () => {
+    global.fetch = jest.fn(() => jsonResponse(lost));
+    await renderLoaded();
+
+    expect(screen.getByText(/out of guesses/i)).toHaveTextContent('The word was gold.');
+    expect(screen.queryByLabelText(/your guess/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'New game' })).toHaveAttribute('href', '/games/new');
+  });
+
+  it('switches to the loss screen when the last guess misses', async () => {
+    global.fetch = jest.fn(() => jsonResponse(gameResponse({ attemptsLeft: 1 })));
+    await renderLoaded();
+    typeGuess('gold');
+    global.fetch = jest.fn(() => jsonResponse(lost, { status: 201 }));
+
+    fireEvent.click(submitButton());
+
+    expect(await screen.findByText(/out of guesses/i)).toBeInTheDocument();
   });
 });
 

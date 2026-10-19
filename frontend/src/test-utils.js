@@ -31,6 +31,7 @@ export function gameResponse(overrides = {}) {
   return {
     id: GAME_ID,
     status: 'IN_PROGRESS',
+    attemptsLeft: 18,
     answer: null,
     guesses: [
       { attempt: 1, name: 'abcd', cows: 1, bulls: 0 },

@@ -92,13 +92,13 @@ class CalculatorTest {
 	}
 
 	@Nested
-	@DisplayName("input the backend does not defend against")
+	@DisplayName("input Calculator does not defend against")
 	class UnguardedInput {
 
-		// Characterisation tests. These pin the behaviour that makes client-side
-		// validation mandatory: every one of these surfaces as an opaque HTTP 500,
-		// because there is no validation layer and no exception handler. When
-		// validation is added, these should become assertions about a 400.
+		// Calculator is a pure scoring function and assumes its input is valid.
+		// These pin what it does when that assumption is broken. The API never
+		// lets such input reach it: GuessRequest validation turns each of these
+		// into a 400 first (see GameControllerTest, "rejected guesses").
 
 		@Test
 		void aGuessOfTheWrongLengthThrows() {
@@ -134,7 +134,8 @@ class CalculatorTest {
 
 		@Test
 		void aNonDictionaryWordIsScoredNormally() {
-			// There is no dictionary check on guesses; this is accepted today.
+			// Calculator doesn't know the dictionary; GameService rejects
+			// non-words with a 422 before scoring.
 			assertThat(Calculator.calculate("abcd", "zzzz")).containsExactly(0, 0);
 		}
 	}

@@ -98,4 +98,23 @@ describe('submitGuess', () => {
     global.fetch.mockReturnValue(errorResponse(409));
     await expect(submitGuess(GAME_ID, 'gold')).rejects.toMatchObject({ status: 409 });
   });
+
+  it("keeps the server's explanation of a rejected guess", async () => {
+    global.fetch.mockReturnValue(jsonResponse(
+      { title: 'Unprocessable Content', status: 422, detail: "'gold' is not in the word list" },
+      { ok: false, status: 422 }
+    ));
+    await expect(submitGuess(GAME_ID, 'gold'))
+      .rejects.toMatchObject({ status: 422, detail: "'gold' is not in the word list" });
+  });
+
+  it('still rejects cleanly when the error body is not JSON', async () => {
+    global.fetch.mockReturnValue(Promise.resolve({
+      ok: false, status: 502, json: () => Promise.reject(new SyntaxError('Unexpected token <')),
+    }));
+    const error = await submitGuess(GAME_ID, 'gold').catch(e => e);
+
+    expect(error.status).toBe(502);
+    expect(error.detail).toBeUndefined();
+  });
 });
