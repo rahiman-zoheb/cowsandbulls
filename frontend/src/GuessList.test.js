@@ -246,6 +246,7 @@ describe('submitting a guess', () => {
   it.each([
     [422, "'gold' is not in the word list"],
     [409, "You already guessed 'gold'"],
+    [429, 'Too many requests; try again in a minute'],
   ])("shows the server's reason for a %i and keeps the guess to correct", async (status, detail) => {
     await renderLoaded();
     typeGuess('gold');

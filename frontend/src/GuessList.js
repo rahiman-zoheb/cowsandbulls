@@ -9,8 +9,8 @@ const EMPTY_ITEM = { name: '' };
 const INVALID_GUESS_MESSAGE = 'Please provide a valid 4 letter word';
 
 // The server's reasons for these are meant for the player: not a word (422),
-// already guessed or game over (409), malformed (400).
-const REJECTED_GUESS_STATUSES = [400, 409, 422];
+// already guessed or game over (409), malformed (400), slow down (429).
+const REJECTED_GUESS_STATUSES = [400, 409, 422, 429];
 
 // Plays the game named in the URL. Loading never creates a game, so a refresh
 // resumes where you left off; only NewGame (/games/new) starts one.

@@ -1,7 +1,9 @@
 package com.zohebrahiman.cowsandbulls.controller;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.FieldError;
@@ -13,6 +15,7 @@ import com.zohebrahiman.cowsandbulls.model.DuplicateGuessException;
 import com.zohebrahiman.cowsandbulls.model.GameOverException;
 import com.zohebrahiman.cowsandbulls.service.GameNotFoundException;
 import com.zohebrahiman.cowsandbulls.service.NotAWordException;
+import com.zohebrahiman.cowsandbulls.service.TooManyGamesException;
 
 /**
  * Maps failures to RFC 9457 problem responses instead of 500s.
@@ -22,7 +25,11 @@ import com.zohebrahiman.cowsandbulls.service.NotAWordException;
  * <li>404: no such game</li>
  * <li>409: the game is over, or the word was already guessed</li>
  * <li>422: well-formed, but not a word</li>
+ * <li>503: the cap on live games is reached</li>
  * </ul>
+ *
+ * Oversized bodies (413) and rate limits (429) are enforced earlier, by
+ * ApiRequestLimitFilter.
  *
  * None of these echo raw client input. That input is unvalidated and may
  * contain CR/LF, and the handled exceptions bypass Spring's default resolver,
@@ -62,6 +69,13 @@ class ApiExceptionHandler {
 	@ExceptionHandler(NotAWordException.class)
 	ProblemDetail notAWord(NotAWordException e) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, e.getMessage());
+	}
+
+	@ExceptionHandler(TooManyGamesException.class)
+	ResponseEntity<ProblemDetail> tooManyGames(TooManyGamesException e) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+				.header(HttpHeaders.RETRY_AFTER, "300")
+				.body(ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage()));
 	}
 
 	@ExceptionHandler(ObjectOptimisticLockingFailureException.class)

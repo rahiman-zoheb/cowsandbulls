@@ -30,6 +30,17 @@ it('hands over to the game page, which loads the game it just created', async ()
 describe('when the backend is unavailable', () => {
   silenceConsoleError();
 
+  it.each([
+    [429, 'Too many new games; try again in a minute'],
+    [503, 'Too many games are in progress right now; try again in a few minutes'],
+  ])('passes on the server’s reason for a %i instead of blaming the backend', async (status, detail) => {
+    global.fetch = jest.fn(() => jsonResponse({ status, detail }, { ok: false, status }));
+    renderApp('/games/new');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(detail);
+    expect(screen.queryByText(/backend running/i)).not.toBeInTheDocument();
+  });
+
   it('shows the failure and lets the player try again', async () => {
     global.fetch = jest.fn(() => Promise.reject(new TypeError('Failed to fetch')));
     renderApp('/games/new');

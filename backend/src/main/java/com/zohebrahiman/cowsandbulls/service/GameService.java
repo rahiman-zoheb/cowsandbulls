@@ -1,11 +1,13 @@
 package com.zohebrahiman.cowsandbulls.service;
 
+import java.time.Clock;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.zohebrahiman.cowsandbulls.api.GameResponse;
+import com.zohebrahiman.cowsandbulls.config.GameLimits;
 import com.zohebrahiman.cowsandbulls.core.WordList;
 import com.zohebrahiman.cowsandbulls.model.Game;
 import com.zohebrahiman.cowsandbulls.model.GameRepository;
@@ -21,14 +23,24 @@ public class GameService {
 
 	private final GameRepository games;
 	private final WordList words;
+	private final GameLimits limits;
+	private final Clock clock;
 
-	public GameService(GameRepository games, WordList words) {
+	public GameService(GameRepository games, WordList words, GameLimits limits, Clock clock) {
 		this.games = games;
 		this.words = words;
+		this.limits = limits;
+		this.clock = clock;
 	}
 
+	/**
+	 * @throws TooManyGamesException if the cap on live games is reached
+	 */
 	public GameResponse create() {
-		return GameResponse.of(games.save(new Game(words.randomSecret())));
+		if (games.count() >= limits.maxActive()) {
+			throw new TooManyGamesException();
+		}
+		return GameResponse.of(games.save(new Game(words.randomSecret(), clock.instant())));
 	}
 
 	@Transactional(readOnly = true)
@@ -46,7 +58,7 @@ public class GameService {
 		if (!words.isWord(word)) {
 			throw new NotAWordException(word);
 		}
-		game.guess(word);
+		game.guess(word, clock.instant());
 		return GameResponse.of(game);
 	}
 
