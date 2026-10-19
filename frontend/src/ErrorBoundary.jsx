@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { Component } from 'react';
 
 // A render-time throw anywhere below here used to unmount the whole tree and
 // leave a blank white page with nothing in the UI to explain it.

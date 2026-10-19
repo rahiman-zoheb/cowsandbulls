@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { Component } from 'react';
 import { Alert, Button, Container } from 'reactstrap';
 import AppNavbar from './AppNavbar';
 import { createGame } from './api';

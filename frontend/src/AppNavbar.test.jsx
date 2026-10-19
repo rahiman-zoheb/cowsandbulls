@@ -1,4 +1,3 @@
-import React from 'react';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import AppNavbar from './AppNavbar';
 import { renderWithRouter } from './test-utils';

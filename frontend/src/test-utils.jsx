@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route } from 'react-router-dom';
 import { AppRoutes } from './App';
@@ -72,7 +71,7 @@ export function currentPath() {
 export function silenceConsoleError() {
   let spy;
   beforeEach(() => {
-    spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    spy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
   afterEach(() => {
     spy.mockRestore();

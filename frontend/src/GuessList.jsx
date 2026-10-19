@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { Component } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, Button, Container, Table, Form, FormFeedback, FormGroup, Input, Label } from 'reactstrap';
 import AppNavbar from './AppNavbar';
@@ -245,7 +245,7 @@ class GuessList extends Component {
           {notFound && (
             <>
               <Alert color="warning" className="mt-3">
-                This game doesn't exist, or it has expired.
+                {"This game doesn't exist, or it has expired."}
               </Alert>
               {this.renderNewGameButton('primary')}
             </>

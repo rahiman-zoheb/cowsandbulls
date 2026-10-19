@@ -4,7 +4,7 @@ import { currentPath, GAME_ID, gameResponse, jsonResponse, renderApp, silenceCon
 const freshGame = gameResponse({ guesses: [] });
 
 beforeEach(() => {
-  global.fetch = jest.fn((url, options) => jsonResponse(freshGame, { status: options && options.method === 'POST' ? 201 : 200 }));
+  globalThis.fetch = vi.fn((url, options) => jsonResponse(freshGame, { status: options && options.method === 'POST' ? 201 : 200 }));
 });
 
 it('creates a game and replaces its own URL with the game\'s', async () => {
@@ -13,8 +13,8 @@ it('creates a game and replaces its own URL with the game\'s', async () => {
   expect(screen.getByText('Starting a new game...')).toBeInTheDocument();
   await waitFor(() => expect(currentPath()).toBe(`/games/${GAME_ID}`));
 
-  expect(global.fetch.mock.calls[0][0]).toBe('/api/games');
-  expect(global.fetch.mock.calls[0][1].method).toBe('POST');
+  expect(globalThis.fetch.mock.calls[0][0]).toBe('/api/games');
+  expect(globalThis.fetch.mock.calls[0][1].method).toBe('POST');
   // Replaced, not pushed: Back skips /games/new instead of creating another game.
   expect(history.action).toBe('REPLACE');
   expect(history.length).toBe(1);
@@ -24,7 +24,7 @@ it('hands over to the game page, which loads the game it just created', async ()
   renderApp('/games/new');
 
   expect(await screen.findByText('No guesses yet.')).toBeInTheDocument();
-  expect(global.fetch.mock.calls.map(([url]) => url)).toEqual(['/api/games', `/api/games/${GAME_ID}`]);
+  expect(globalThis.fetch.mock.calls.map(([url]) => url)).toEqual(['/api/games', `/api/games/${GAME_ID}`]);
 });
 
 describe('when the backend is unavailable', () => {
@@ -34,7 +34,7 @@ describe('when the backend is unavailable', () => {
     [429, 'Too many new games; try again in a minute'],
     [503, 'Too many games are in progress right now; try again in a few minutes'],
   ])('passes on the server’s reason for a %i instead of blaming the backend', async (status, detail) => {
-    global.fetch = jest.fn(() => jsonResponse({ status, detail }, { ok: false, status }));
+    globalThis.fetch = vi.fn(() => jsonResponse({ status, detail }, { ok: false, status }));
     renderApp('/games/new');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(detail);
@@ -42,13 +42,13 @@ describe('when the backend is unavailable', () => {
   });
 
   it('shows the failure and lets the player try again', async () => {
-    global.fetch = jest.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+    globalThis.fetch = vi.fn(() => Promise.reject(new TypeError('Failed to fetch')));
     renderApp('/games/new');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/backend running/i);
     expect(currentPath()).toBe('/games/new');
 
-    global.fetch = jest.fn(() => jsonResponse(freshGame, { status: 201 }));
+    globalThis.fetch = vi.fn(() => jsonResponse(freshGame, { status: 201 }));
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
     await waitFor(() => expect(currentPath()).toBe(`/games/${GAME_ID}`));
@@ -56,11 +56,11 @@ describe('when the backend is unavailable', () => {
 });
 
 it('does not navigate or update state if the player leaves before the game is created', async () => {
-  const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
   let resolveCreate;
-  global.fetch = jest.fn(() => new Promise(resolve => { resolveCreate = resolve; }));
+  globalThis.fetch = vi.fn(() => new Promise(resolve => { resolveCreate = resolve; }));
   const { history } = renderApp('/games/new');
-  await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(1));
 
   act(() => history.push('/'));
   await act(async () => {
@@ -74,11 +74,11 @@ it('does not navigate or update state if the player leaves before the game is cr
 });
 
 it('stays quiet if creation fails after the player has already left', async () => {
-  const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
   let rejectCreate;
-  global.fetch = jest.fn(() => new Promise((_resolve, reject) => { rejectCreate = reject; }));
+  globalThis.fetch = vi.fn(() => new Promise((_resolve, reject) => { rejectCreate = reject; }));
   const { history } = renderApp('/games/new');
-  await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(1));
 
   act(() => history.push('/'));
   await act(async () => {

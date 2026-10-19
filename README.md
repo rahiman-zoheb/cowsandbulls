@@ -9,7 +9,7 @@ This repository holds both halves of the game:
 | Directory | What it is | Stack |
 |---|---|---|
 | [`backend/`](backend/) | REST API that picks the secret and scores guesses | Spring Boot 4.1, Java 17+, H2 |
-| [`frontend/`](frontend/) | Browser UI | React 16, Create React App, reactstrap |
+| [`frontend/`](frontend/) | Browser UI | React 16, Vite, reactstrap |
 
 The frontend used to live in
 [cowsandbulls_reactjs](https://github.com/rahiman-zoheb/cowsandbulls_reactjs); its full
@@ -76,7 +76,7 @@ The frontend mirrors this: `/games/new` starts a game and replaces its own URL w
 
 ```
 cd backend && ./mvnw verify
-cd frontend && npm test -- --watchAll=false --coverage
+cd frontend && npm run lint && npm test -- --run --coverage
 ```
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs only the side a change touches,
@@ -104,7 +104,7 @@ For Docker Compose, copy `.env.example` to `.env` (gitignored) and fill it in. I
 Actions secrets. Push protection blocks commits that contain known secret formats.
 
 The frontend has no secrets and must never be given any: everything in its build, including
-`REACT_APP_*` variables, ships to every visitor's browser.
+`VITE_*` variables, ships to every visitor's browser.
 
 ## Known issues
 
