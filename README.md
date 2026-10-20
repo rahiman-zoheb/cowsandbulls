@@ -79,6 +79,20 @@ cd backend && ./mvnw verify
 cd frontend && npm run lint && npm test -- --run --coverage
 ```
 
+Browser tests in [`e2e/`](e2e) use Playwright to play whole games against the packaged app:
+winning (by actually solving the puzzle, since the API never gives the answer away), losing,
+refreshing, bad input, two tabs, a backend outage, and dead links. They also fail on any
+Content-Security-Policy violation, and run axe with every rule, colour contrast included.
+Start the app with the rate limits raised, then:
+
+```
+docker run -p 8080:8080 -e COWSANDBULLS_API_GAMESPERMINUTE=1000 -e COWSANDBULLS_API_REQUESTSPERMINUTE=10000 cowsandbulls
+cd e2e && npm ci && npx playwright install chromium && npx playwright test
+```
+
+Set `E2E_BASE_URL` to test another address, and `E2E_CHANNEL=msedge` (or `chrome`) to use an
+installed browser instead of downloading one.
+
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs only the side a change touches,
 then reports a single `ci-success` check. That is the only check branch protection requires.
 
