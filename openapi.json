@@ -1,0 +1,333 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "description" : "Guess the server's secret four-letter word in 20 tries.",
+    "title" : "Cows and Bulls API",
+    "version" : "1"
+  },
+  "servers" : [ {
+    "url" : "/"
+  } ],
+  "paths" : {
+    "/api/games" : {
+      "post" : {
+        "description" : "Picks a secret word on the server. The answer stays null until the game ends.",
+        "operationId" : "create",
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GameResponse"
+                }
+              }
+            },
+            "description" : "The new game",
+            "headers" : {
+              "Location" : {
+                "description" : "The game's URL",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many games or requests from this address; see Retry-After"
+          },
+          "503" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The server is holding as many games as it allows; see Retry-After"
+          }
+        },
+        "summary" : "Start a game",
+        "tags" : [ "game-controller" ]
+      }
+    },
+    "/api/games/{id}" : {
+      "get" : {
+        "operationId" : "get",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GameResponse"
+                }
+              }
+            },
+            "description" : "The game"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The ID is not a UUID"
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "No such game, or it has expired"
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many requests from this address; see Retry-After"
+          }
+        },
+        "summary" : "Get a game",
+        "tags" : [ "game-controller" ]
+      }
+    },
+    "/api/games/{id}/guesses" : {
+      "post" : {
+        "description" : "Returns the whole updated game, so one response gives the score and whether the game is over.",
+        "operationId" : "guess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GuessRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GameResponse"
+                }
+              }
+            },
+            "description" : "The game, with the scored guess last"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The ID is not a UUID, or the body is not a four-letter guess"
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "No such game, or it has expired"
+          },
+          "409" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The game is over, the word was already guessed, or another guess raced this one"
+          },
+          "411" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "No Content-Length; chunked bodies are refused"
+          },
+          "413" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The body is over the size limit"
+          },
+          "422" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "A well-formed guess that is not in the word list"
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many requests from this address; see Retry-After"
+          }
+        },
+        "summary" : "Make a guess",
+        "tags" : [ "game-controller" ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "GameResponse" : {
+        "type" : "object",
+        "properties" : {
+          "answer" : {
+            "type" : [ "string", "null" ],
+            "description" : "The secret word once the game is WON or LOST; null while it is IN_PROGRESS",
+            "pattern" : "^[a-z]{4}$"
+          },
+          "attemptsLeft" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "guesses" : {
+            "type" : "array",
+            "description" : "Oldest first",
+            "items" : {
+              "$ref" : "#/components/schemas/GuessResponse"
+            }
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "IN_PROGRESS", "WON", "LOST" ]
+          }
+        },
+        "required" : [ "answer", "attemptsLeft", "guesses", "id", "status" ]
+      },
+      "GuessRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "description" : "Four letters; the server ignores case and surrounding spaces",
+            "example" : "fork",
+            "pattern" : "^[a-z]{4}$"
+          }
+        },
+        "required" : [ "name" ]
+      },
+      "GuessResponse" : {
+        "type" : "object",
+        "properties" : {
+          "attempt" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          },
+          "bulls" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Right letter, right place",
+            "maximum" : 4,
+            "minimum" : 0
+          },
+          "cows" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Right letter, wrong place",
+            "maximum" : 4,
+            "minimum" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "pattern" : "^[a-z]{4}$"
+          }
+        },
+        "required" : [ "attempt", "bulls", "cows", "name" ]
+      },
+      "Problem" : {
+        "type" : "object",
+        "description" : "An RFC 9457 problem detail",
+        "properties" : {
+          "detail" : {
+            "type" : "string",
+            "description" : "What went wrong, fit to show the player"
+          },
+          "instance" : {
+            "type" : "string",
+            "format" : "uri-reference",
+            "description" : "The request path, such as /api/games"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string",
+            "format" : "uri-reference",
+            "description" : "Defaults to about:blank"
+          }
+        },
+        "required" : [ "detail", "status", "title" ]
+      }
+    }
+  }
+}
