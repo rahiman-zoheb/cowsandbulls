@@ -1,5 +1,4 @@
 import { Component } from 'react';
-import { Alert, Button, Container } from 'reactstrap';
 import AppNavbar from './AppNavbar';
 import { createGame } from './api';
 
@@ -48,16 +47,17 @@ class NewGame extends Component {
     return (
       <div>
         <AppNavbar/>
-        <Container className="mt-3">
+        <main className="container mt-3">
+          <h1 className="visually-hidden">New game</h1>
           {error ? (
             <>
-              <Alert color="danger">{error}</Alert>
-              <Button color="primary" onClick={this.start}>Try again</Button>
+              <div className="alert alert-danger" role="alert">{error}</div>
+              <button type="button" className="btn btn-primary" onClick={this.start}>Try again</button>
             </>
           ) : (
             <p role="status">Starting a new game...</p>
           )}
-        </Container>
+        </main>
       </div>
     );
   }

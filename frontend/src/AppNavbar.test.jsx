@@ -25,8 +25,18 @@ it('expands the collapsed menu when the toggler is clicked', async () => {
 
   fireEvent.click(screen.getByRole('button', { name: /toggle navigation/i }));
 
-  // jsdom never fires transitionend, so reactstrap falls back to its timeout.
   await waitFor(() => expect(collapse()).toHaveClass('show'));
+});
+
+it('tells assistive technology whether the menu is open, and which element it controls', () => {
+  renderWithRouter(<AppNavbar />);
+  const toggler = screen.getByRole('button', { name: /toggle navigation/i });
+
+  expect(toggler).toHaveAttribute('aria-expanded', 'false');
+  expect(document.getElementById(toggler.getAttribute('aria-controls'))).toHaveClass('navbar-collapse');
+
+  fireEvent.click(toggler);
+  expect(toggler).toHaveAttribute('aria-expanded', 'true');
 });
 
 it('collapses again on a second click', async () => {
