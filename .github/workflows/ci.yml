@@ -17,6 +17,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      image: ${{ steps.filter.outputs.image }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -38,6 +39,7 @@ jobs:
              || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
             echo "backend=true" >> "$GITHUB_OUTPUT"
             echo "frontend=true" >> "$GITHUB_OUTPUT"
+            echo "image=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -46,6 +48,8 @@ jobs:
           touches() { if grep -qE "$1" <<<"$changed"; then echo true; else echo false; fi; }
           echo "backend=$(touches '^(backend/|\.github/workflows/ci\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "frontend=$(touches '^(frontend/|\.github/workflows/ci\.yml$)')" >> "$GITHUB_OUTPUT"
+          # The image contains both apps, so either side (or the Dockerfile) rebuilds it.
+          echo "image=$(touches '^(backend/|frontend/|Dockerfile$|\.dockerignore$|\.github/workflows/ci\.yml$)')" >> "$GITHUB_OUTPUT"
 
   backend:
     needs: changes
@@ -82,30 +86,47 @@ jobs:
           path: backend/target/surefire-reports/
           if-no-files-found: ignore
 
-  # Builds the image from a clean checkout and smoke-tests the container, so
-  # the Dockerfile can't silently depend on a locally built jar again (#24).
-  backend-image:
+  # Builds the single image (frontend inside the backend) from a clean
+  # checkout and smoke-tests the running container: the app and the API on
+  # one origin, client-side routes, security headers, and persistence.
+  app-image:
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.image == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
       - name: Build image
-        run: docker build -t cowsandbulls-backend:ci backend
+        run: docker build -t cowsandbulls:ci .
 
       - name: Smoke-test the container
         run: |
-          docker run -d --name backend -p 8080:8080 cowsandbulls-backend:ci
+          docker run -d --name app -p 8080:8080 cowsandbulls:ci
           for _ in $(seq 1 60); do
             curl -fsS http://localhost:8080/actuator/health 2>/dev/null | grep -q '"UP"' && break
             sleep 2
           done
           curl -fsS http://localhost:8080/actuator/health
           echo
+
+          # The frontend is served from the same origin, and its assets load.
+          page=$(curl -fsS http://localhost:8080/)
+          grep -q '<div id="root">' <<<"$page"
+          asset=$(grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' <<<"$page" | head -1)
+          test -n "$asset"
+          curl -fsS -o /dev/null -w "GET $asset -> %{http_code} %{content_type}" "http://localhost:8080$asset"
+          echo
+
+          # A client-side route gets the app; an unknown API path stays a 404.
+          curl -fsS http://localhost:8080/games/new | grep -q '<div id="root">'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/nope)" = 404
+
+          # Security headers come from the backend, on the HTML too.
+          curl -fsS -D - -o /dev/null http://localhost:8080/ | grep -i '^content-security-policy:'
+
           id=$(curl -fsS -X POST http://localhost:8080/api/games | jq -r .id)
           echo "created game $id"
-          user=$(docker inspect -f '{{.Config.User}}' backend)
+          user=$(docker inspect -f '{{.Config.User}}' app)
           echo "runs as: $user"
           test "$user" = "spring:spring"
 
@@ -113,7 +134,7 @@ jobs:
       - name: Games survive a container restart
         run: |
           id=$(curl -fsS -X POST http://localhost:8080/api/games | jq -r .id)
-          docker restart backend
+          docker restart app
           for _ in $(seq 1 60); do
             curl -fsS http://localhost:8080/actuator/health 2>/dev/null | grep -q '"UP"' && break
             sleep 2
@@ -123,7 +144,7 @@ jobs:
 
       - name: Container logs
         if: failure()
-        run: docker logs backend
+        run: docker logs app
 
   frontend:
     needs: changes
@@ -164,14 +185,14 @@ jobs:
   # jobs; skipped counts as success, failed or cancelled does not.
   ci-success:
     if: always()
-    needs: [changes, backend, backend-image, frontend]
+    needs: [changes, backend, app-image, frontend]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any job failed or was cancelled
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: |
-          echo "changes=${{ needs.changes.result }} backend=${{ needs.backend.result }} backend-image=${{ needs.backend-image.result }} frontend=${{ needs.frontend.result }}"
+          echo "changes=${{ needs.changes.result }} backend=${{ needs.backend.result }} app-image=${{ needs.app-image.result }} frontend=${{ needs.frontend.result }}"
           exit 1
 
       - name: Summary
-        run: echo "changes=${{ needs.changes.result }} backend=${{ needs.backend.result }} backend-image=${{ needs.backend-image.result }} frontend=${{ needs.frontend.result }}"
+        run: echo "changes=${{ needs.changes.result }} backend=${{ needs.backend.result }} app-image=${{ needs.app-image.result }} frontend=${{ needs.frontend.result }}"
