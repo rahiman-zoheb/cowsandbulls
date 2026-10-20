@@ -1,8 +1,0 @@
-# Keep the build context to what the Dockerfile needs (#26).
-target/
-.idea/
-*.iml
-.vscode/
-HELP.md
-Dockerfile
-.dockerignore

@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Generated: the frontend build is copied here when the image is built.
+src/main/resources/static/

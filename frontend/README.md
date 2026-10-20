@@ -24,12 +24,11 @@ Coverage thresholds (95% statements, functions and lines, 90% branches) are set 
 All backend calls go through `src/api.js`, which prefixes them with `/api`. To point a build at a
 different origin, set `VITE_API_BASE` when building, e.g.
 `VITE_API_BASE=https://example.com/api npm run build`. The dev-server proxy only exists in
-development, so a production build needs either this variable or a reverse proxy.
+development; in production the backend serves the app itself, so `/api` is already same-origin.
 
 Everything in the build, including every `VITE_*` variable, is public. Never put a secret here.
 
-## Docker
+## Production
 
-`docker build -t cowsandbulls-frontend .` then
-`docker run --rm -p 127.0.0.1:3001:3000 cowsandbulls-frontend` runs the dev server. Binding to
-`127.0.0.1` keeps it off your local network.
+There is no separate frontend image. The root `Dockerfile` builds this app into the backend jar,
+which serves it from the same origin as the API; see the [root README](../README.md#docker).

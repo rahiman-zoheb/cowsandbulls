@@ -1,8 +1,7 @@
 services:
-  backend:
-    build:
-      context: backend
-      dockerfile: Dockerfile
+  app:
+    # The root Dockerfile builds the frontend and the backend into one image.
+    build: .
     restart: on-failure
     ports:
       - 8080:8080

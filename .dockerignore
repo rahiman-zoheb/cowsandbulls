@@ -1,0 +1,13 @@
+# Keep the build context to sources. Both apps are built inside the image.
+.git
+.github
+**/node_modules
+**/target
+**/build
+**/coverage
+backend/src/main/resources/static
+.idea
+*.iml
+.vscode
+# Secrets must never be baked into an image (#52).
+.env

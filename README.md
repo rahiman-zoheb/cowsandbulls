@@ -84,10 +84,22 @@ then reports a single `ci-success` check. That is the only check branch protecti
 
 ## Docker
 
-`docker compose up --build` builds and runs the backend. The image compiles the jar itself, runs
-as a non-root user, and uses the `prod` profile, so games are stored in an H2 database file on
-the `game-data` volume and survive restarts and rebuilds. CI builds the same image on every
-backend change, smoke-tests it, and restarts the container to check a game outlives it.
+`docker compose up --build`, then open http://localhost:8080.
+
+The root `Dockerfile` builds **one image** for the whole game. Node builds the frontend, Maven
+builds the backend jar with that build inside it, and the jar serves both the app and `/api` from
+the same origin, so the browser needs no CORS and no proxy. Client-side routes such as
+`/games/{id}` get the app; unknown `/api` paths and missing assets stay 404s. Hashed assets are
+cached for a year; the app shell is revalidated on every load.
+
+Every response carries a strict Content-Security-Policy (same-origin scripts, styles and
+connections only; no framing), plus `X-Content-Type-Options`, `X-Frame-Options` and
+`Referrer-Policy`. HSTS is left to whatever terminates TLS in front of the app.
+
+The image runs as a non-root user with the `prod` profile, so games are stored in an H2 database
+file on the `game-data` volume and survive restarts and rebuilds. CI builds the image whenever
+either app changes, smoke-tests the running container, and restarts it to check a game outlives
+it.
 
 ## Configuration and secrets
 
