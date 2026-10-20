@@ -5,3 +5,6 @@
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local configuration and secrets (#52); .env.example is the template.
+.env

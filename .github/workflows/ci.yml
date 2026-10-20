@@ -103,11 +103,23 @@ jobs:
           done
           curl -fsS http://localhost:8080/actuator/health
           echo
-          curl -fsS -o /dev/null -w 'POST /api/games -> %{http_code}' -X POST http://localhost:8080/api/games
-          echo
+          id=$(curl -fsS -X POST http://localhost:8080/api/games | jq -r .id)
+          echo "created game $id"
           user=$(docker inspect -f '{{.Config.User}}' backend)
           echo "runs as: $user"
           test "$user" = "spring:spring"
+
+      # The image runs the prod profile, so the game must outlive the process.
+      - name: Games survive a container restart
+        run: |
+          id=$(curl -fsS -X POST http://localhost:8080/api/games | jq -r .id)
+          docker restart backend
+          for _ in $(seq 1 60); do
+            curl -fsS http://localhost:8080/actuator/health 2>/dev/null | grep -q '"UP"' && break
+            sleep 2
+          done
+          curl -fsS -o /dev/null -w "GET /api/games/$id after restart -> %{http_code}" http://localhost:8080/api/games/$id
+          echo
 
       - name: Container logs
         if: failure()

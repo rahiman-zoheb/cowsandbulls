@@ -84,10 +84,27 @@ then reports a single `ci-success` check. That is the only check branch protecti
 
 ## Docker
 
-`docker-compose up --build` builds and runs the backend; the image compiles the jar itself, so
-nothing needs building first. CI builds the same image on every backend change and
-smoke-tests the running container. The frontend image is described in
-[`frontend/README.md`](frontend/README.md).
+`docker compose up --build` builds and runs the backend. The image compiles the jar itself, runs
+as a non-root user, and uses the `prod` profile, so games are stored in an H2 database file on
+the `game-data` volume and survive restarts and rebuilds. CI builds the same image on every
+backend change, smoke-tests it, and restarts the container to check a game outlives it.
+
+## Configuration and secrets
+
+Settings live in `backend/src/main/resources/application.properties`, and the `prod` profile in
+`application-prod.properties`. Anything secret comes from the environment and is never committed:
+
+| Variable | Used for |
+|---|---|
+| `COWSANDBULLS_DB_PASSWORD` | the H2 database password (`prod`). H2 fixes it when the file is first created. |
+| `COWSANDBULLS_DB_PATH` | where the database file lives (`prod`, default `/data/cowsandbulls`) |
+| `SPRING_DATASOURCE_URL` / `_USERNAME` / `_PASSWORD` | to use another database instead; add its JDBC driver to the pom |
+
+For Docker Compose, copy `.env.example` to `.env` (gitignored) and fill it in. In CI, use GitHub
+Actions secrets. Push protection blocks commits that contain known secret formats.
+
+The frontend has no secrets and must never be given any: everything in its build, including
+`REACT_APP_*` variables, ships to every visitor's browser.
 
 ## Known issues
 

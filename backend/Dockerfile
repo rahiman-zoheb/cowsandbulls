@@ -13,7 +13,11 @@ RUN ./mvnw -B -q package -DskipTests
 
 # Runtime stage: JRE only, maintained base image (#25), non-root user.
 FROM eclipse-temurin:21-jre
-RUN groupadd --system spring && useradd --system --gid spring --no-create-home spring
+RUN groupadd --system spring && useradd --system --gid spring --no-create-home spring     && mkdir /data && chown spring:spring /data
+# Games persist here under the prod profile (#27). Mount a volume to keep them
+# across container replacement, not just restarts.
+VOLUME /data
+ENV SPRING_PROFILES_ACTIVE=prod
 USER spring:spring
 COPY --from=build /src/target/cowsandbulls-*.jar /app.jar
 EXPOSE 8080

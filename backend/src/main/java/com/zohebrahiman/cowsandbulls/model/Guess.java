@@ -7,6 +7,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -17,8 +18,10 @@ import jakarta.persistence.ManyToOne;
 @Entity
 public class Guess {
 
+	// IDENTITY maps to a plain auto-increment column in the migration, which
+	// is portable to other databases; the default would need a sequence.
 	@Id
-	@GeneratedValue
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
 	// Expiry deletes games in bulk with a single query, which bypasses JPA
