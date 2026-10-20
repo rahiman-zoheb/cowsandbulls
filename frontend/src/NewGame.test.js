@@ -15,9 +15,23 @@ it('creates a game and replaces its own URL with the game\'s', async () => {
 
   expect(globalThis.fetch.mock.calls[0][0]).toBe('/api/games');
   expect(globalThis.fetch.mock.calls[0][1].method).toBe('POST');
-  // Replaced, not pushed: Back skips /games/new instead of creating another game.
+  // Replaced, not pushed: Back must not return to /games/new, which would
+  // start yet another game.
   expect(history.action).toBe('REPLACE');
-  expect(history.length).toBe(1);
+  act(() => history.back());
+  expect(currentPath()).toBe(`/games/${GAME_ID}`);
+  expect(globalThis.fetch.mock.calls.filter(([, options]) => options && options.method === 'POST')).toHaveLength(1);
+});
+
+it("creates exactly one game under StrictMode's double mount", async () => {
+  // In development React 19 mounts, unmounts and remounts NewGame. Without the
+  // deferred, cancellable start, both mounts posted, so every page load created
+  // two games and spent two of the per-minute creation allowance.
+  renderApp('/games/new', { strict: true });
+
+  await waitFor(() => expect(currentPath()).toBe(`/games/${GAME_ID}`));
+  const posts = globalThis.fetch.mock.calls.filter(([, options]) => options && options.method === 'POST');
+  expect(posts).toHaveLength(1);
 });
 
 it('hands over to the game page, which loads the game it just created', async () => {
@@ -53,6 +67,7 @@ describe('when the backend is unavailable', () => {
 
     await waitFor(() => expect(currentPath()).toBe(`/games/${GAME_ID}`));
   });
+
 });
 
 it('does not navigate or update state if the player leaves before the game is created', async () => {

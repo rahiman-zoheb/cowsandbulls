@@ -1,5 +1,6 @@
+import { StrictMode, useEffect } from 'react';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate, useNavigationType } from 'react-router';
 import { AppRoutes } from './App';
 
 // Not named *.test.js on purpose: CRA's testMatch would run it as a suite.
@@ -45,20 +46,39 @@ export function renderWithRouter(ui, { route = '/' } = {}) {
   return render(<MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>);
 }
 
-// Mounts the real route table at `path`. The returned `history` is the live
-// router history, for asserting on redirects and driving navigation.
-export function renderApp(path = '/') {
+// Mounts the real route table at `path`. The returned `history` drives
+// navigation (push, back) and reports how the current location was reached
+// (action: 'PUSH', 'REPLACE' or 'POP'). React Router 7 exposes these only
+// through hooks, so a probe component inside the router collects them.
+export function renderApp(path = '/', { strict = false } = {}) {
   const router = {};
-  const result = render(
+  function RouterProbe() {
+    const navigate = useNavigate();
+    const action = useNavigationType();
+    const location = useLocation();
+    useEffect(() => {
+      router.navigate = navigate;
+      router.action = action;
+    });
+    return <span data-testid="location" hidden>{location.pathname}</span>;
+  }
+  const app = (
     <MemoryRouter initialEntries={[path]}>
       <AppRoutes/>
-      <Route render={({ history, location }) => {
-        router.history = history;
-        return <span data-testid="location" hidden>{location.pathname}</span>;
-      }}/>
+      <RouterProbe/>
     </MemoryRouter>
   );
-  return { ...result, history: router.history };
+  // StrictMode is what index.jsx uses; in development it mounts, unmounts and
+  // remounts every component, which tests otherwise never exercise.
+  const result = render(strict ? <StrictMode>{app}</StrictMode> : app);
+  const history = {
+    push: to => router.navigate(to),
+    back: () => router.navigate(-1),
+    get action() {
+      return router.action;
+    },
+  };
+  return { ...result, history };
 }
 
 export function currentPath() {
