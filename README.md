@@ -37,6 +37,13 @@ npm start
 Every game is independent and addressed by a random UUID. The server keeps the secret; responses
 never include it until the game is over.
 
+[`openapi.json`](openapi.json) is the full contract (OpenAPI 3.1), generated from the backend
+code. Both sides are tested against it: the backend fails if the file is out of date, and the
+frontend fails if a request it sends, or a mock response its tests render, doesn't match it. After
+changing the API, regenerate it with
+`cd backend && ./mvnw test -Dtest=OpenApiSpecTest -Dopenapi.update=true`. The running app doesn't
+serve the spec; springdoc is only a test dependency.
+
 | Request | Response |
 |---|---|
 | `POST /api/games` | `201`, a new game |
