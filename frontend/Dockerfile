@@ -19,4 +19,5 @@ RUN mkdir node_modules/.cache && chmod -R 777 node_modules/.cache
 COPY . ./
 
 # start app
-CMD ["npm", "start"]
+# Vite binds to localhost by default, which is unreachable from outside the container.
+CMD ["npm", "start", "--", "--host", "0.0.0.0"]

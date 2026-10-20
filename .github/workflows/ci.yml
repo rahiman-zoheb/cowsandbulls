@@ -132,7 +132,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['20.x', '22.x']
+        # Node 20 reached end-of-life in April 2026; Vite 8 and Vitest 5 need 22.12+.
+        node-version: ['22.x', '24.x']
     defaults:
       run:
         working-directory: frontend
@@ -149,16 +150,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests with coverage
-        run: npm test -- --watchAll=false --coverage
-        env:
-          CI: true
+      - name: Lint
+        run: npm run lint
 
-      # CI=true promotes ESLint warnings to errors, so this also lints.
+      - name: Run tests with coverage
+        run: npm test -- --run --coverage
+
       - name: Build
         run: npm run build
-        env:
-          CI: true
 
   # The only check branch protection requires. It always runs, so a PR that
   # touches one side isn't left waiting forever on the other side's skipped

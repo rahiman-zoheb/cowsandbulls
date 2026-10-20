@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import App from './App';
 import { GAME_ID, gameResponse, jsonResponse } from './test-utils';
@@ -11,7 +10,7 @@ function visit(path) {
 }
 
 beforeEach(() => {
-  global.fetch = jest.fn(() => jsonResponse(gameResponse()));
+  globalThis.fetch = vi.fn(() => jsonResponse(gameResponse()));
 });
 
 afterEach(() => {
@@ -22,7 +21,7 @@ it('renders the home route by default without touching the API', () => {
   visit('/');
 
   expect(screen.getByRole('link', { name: 'Play A Game' })).toHaveAttribute('href', '/games/new');
-  expect(global.fetch).not.toHaveBeenCalled();
+  expect(globalThis.fetch).not.toHaveBeenCalled();
 });
 
 it('renders a game at /games/:gameId', async () => {
@@ -30,14 +29,14 @@ it('renders a game at /games/:gameId', async () => {
 
   await waitForElementToBeRemoved(() => screen.queryByText('Loading...'));
   expect(screen.getByRole('heading', { name: 'My guesses' })).toBeInTheDocument();
-  expect(global.fetch.mock.calls[0][0]).toBe(`/api/games/${GAME_ID}`);
+  expect(globalThis.fetch.mock.calls[0][0]).toBe(`/api/games/${GAME_ID}`);
 });
 
 it('starts a game at /games/new and lands on its URL', async () => {
   visit('/games/new');
 
   await waitFor(() => expect(window.location.pathname).toBe(`/games/${GAME_ID}`));
-  expect(global.fetch.mock.calls[0][1].method).toBe('POST');
+  expect(globalThis.fetch.mock.calls[0][1].method).toBe('POST');
 });
 
 it('sends the old /guesses link to a new game', async () => {
@@ -54,5 +53,5 @@ it('renders a not-found page for an unknown route', () => {
 
   expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Go back home' })).toHaveAttribute('href', '/');
-  expect(global.fetch).not.toHaveBeenCalled();
+  expect(globalThis.fetch).not.toHaveBeenCalled();
 });

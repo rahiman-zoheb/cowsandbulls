@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -11,7 +10,7 @@ let consoleError;
 beforeEach(() => {
   // React logs the caught error itself; the boundary adds its own line. Neither
   // is a failure, but both would drown the reporter.
-  consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => {

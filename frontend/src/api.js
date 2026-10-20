@@ -5,7 +5,7 @@
 // game as { id, status, guesses, attemptsLeft, answer }, where answer stays
 // null until the game is won or lost. Nothing here can learn the word early.
 
-export const API_BASE = process.env.REACT_APP_API_BASE || '/api';
+export const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 // Secrets are lowercase four-letter words drawn from the backend's word list.
 export const GUESS_PATTERN = /^[a-z]{4}$/;
@@ -34,7 +34,7 @@ async function failed(response) {
     if (problem && typeof problem.detail === 'string') {
       error.detail = problem.detail;
     }
-  } catch (notJson) {
+  } catch {
     // No usable body; the status alone will have to do.
   }
   return error;

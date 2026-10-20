@@ -1,80 +1,35 @@
-# Cows And Bulls ReactJS Application
-A ReactJS Application for the very friendly and popular Cows And Bulls Game!
+# Cows and Bulls: frontend
 
-## Credits
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+The browser UI for Cows and Bulls, built with React and [Vite](https://vite.dev/). It lives in the
+[cowsandbulls](https://github.com/rahiman-zoheb/cowsandbulls) repository next to the backend; see
+the [root README](../README.md) for the API and for running both together.
 
-## Available Scripts
+Requires Node.js 22.12 or later.
 
-### In the project directory, you can run:
+## Scripts
 
-### `npm install`
-Install the project dependencies
+| Command | What it does |
+|---|---|
+| `npm start` | Dev server on http://localhost:3000, proxying `/api` to the backend on port 8080 |
+| `npm test` | [Vitest](https://vitest.dev/) in watch mode; `npm test -- --run --coverage` runs once, the way CI does |
+| `npm run lint` | ESLint |
+| `npm run build` | Production build into `build/` |
+| `npm run preview` | Serves the production build locally |
 
-### `npm start`
+Coverage thresholds (95% statements, functions and lines, 90% branches) are set in
+`vite.config.js`, and a run that drops below them fails.
 
-Runs the app in the development mode.<br />
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Configuration
 
-The page will reload if you make edits.<br />
-You will also see any lint errors in the console.
+All backend calls go through `src/api.js`, which prefixes them with `/api`. To point a build at a
+different origin, set `VITE_API_BASE` when building, e.g.
+`VITE_API_BASE=https://example.com/api npm run build`. The dev-server proxy only exists in
+development, so a production build needs either this variable or a reverse proxy.
 
-### `npm test`
+Everything in the build, including every `VITE_*` variable, is public. Never put a secret here.
 
-Launches the test runner in the interactive watch mode.<br />
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Docker
 
-Run once with a coverage report, the way CI does:
-
-```
-npm test -- --watchAll=false --coverage
-```
-
-Coverage thresholds are enforced from the `jest` block in `package.json`, so a
-drop below them fails the run.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.<br />
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.<br />
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-## Steps to set up
-This app lives in the `frontend/` directory of the
-[cowsandbulls](https://github.com/rahiman-zoheb/cowsandbulls) repository, next to the backend.
-See the [root README](../README.md) for running both together.
-+ Start the backend so it is available on 127.0.0.1:8080 (the dev server proxies `/api` there)
-+ From `frontend/`, run `npm install`
-+ Run `npm start`
-
-All backend calls go through `src/api.js`, which prefixes them with `/api` by
-default. Point the app at a different origin by setting `REACT_APP_API_BASE`
-before the build, e.g. `REACT_APP_API_BASE=https://example.com/api npm run build`.
-Note that the `proxy` field in `package.json` is honoured only by the dev
-server, so a production build needs either this variable or a reverse proxy.
-
-## Dockerized Run
-### Dockerfile options
-IMPORTANT: Dockerization is working, but since the app is not pointing to backend service yet, it will not connect
-+ From `frontend/`, run `docker build -t zohebrahiman/cowsandbulls_reactjs .` -> Build docker image
-+ Run `docker run -ti --rm -v ${PWD}:/app -v /app/node_modules -p 3001:3000 -e CHOKIDAR_USEPOLLING=true zohebrahiman/cowsandbulls_reactjs` -> Run a container
+`docker build -t cowsandbulls-frontend .` then
+`docker run --rm -p 127.0.0.1:3001:3000 cowsandbulls-frontend` runs the dev server. Binding to
+`127.0.0.1` keeps it off your local network.
