@@ -1,5 +1,5 @@
 import { Component, createRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import AppNavbar from './AppNavbar';
 import { fetchGame, isValidGuess, normalizeGuess, submitGuess } from './api';
 
@@ -56,7 +56,7 @@ class GuessList extends Component {
   componentDidUpdate(previous) {
     // Navigating straight from one game's URL to another keeps this component
     // mounted, so the new game has to be loaded here.
-    if (previous.match.params.gameId !== this.gameId()) {
+    if (previous.gameId !== this.gameId()) {
       this.load();
     }
   }
@@ -66,7 +66,7 @@ class GuessList extends Component {
   }
 
   gameId() {
-    return this.props.match.params.gameId;
+    return this.props.gameId;
   }
 
   // setState is a no-op warning once the router has unmounted this component,

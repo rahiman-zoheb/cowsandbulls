@@ -1,7 +1,7 @@
 import { Component } from 'react';
 import './App.css';
 import AppNavbar from './AppNavbar';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 class Home extends Component {
   render() {

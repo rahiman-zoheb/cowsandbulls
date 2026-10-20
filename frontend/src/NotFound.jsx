@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import AppNavbar from './AppNavbar';
 
 // Without a catch-all route <Switch> renders null, which left an unknown URL as

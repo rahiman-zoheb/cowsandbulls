@@ -24,11 +24,20 @@ class NewGame extends Component {
   }
 
   async start() {
+    // In development, StrictMode unmounts and remounts this same instance,
+    // and in a browser it does so after the first request has already been
+    // sent. Without this guard the remount sent a second POST, so every page
+    // load created two games. The request already in flight finishes the job:
+    // it checks `mounted` when it resolves.
+    if (this.creating) {
+      return;
+    }
+    this.creating = true;
     this.setState({ error: null });
     try {
       const game = await createGame();
       if (this.mounted) {
-        this.props.history.replace(`/games/${game.id}`);
+        this.props.onCreated(game.id);
       }
     } catch (error) {
       console.error('Could not start a new game', error);
@@ -39,6 +48,8 @@ class NewGame extends Component {
         const busy = (error.status === 429 || error.status === 503) && error.detail;
         this.setState({ error: busy ? error.detail : 'Could not start a new game. Is the backend running?' });
       }
+    } finally {
+      this.creating = false;
     }
   }
 
