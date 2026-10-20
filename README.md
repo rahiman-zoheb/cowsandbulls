@@ -11,9 +11,8 @@ This repository holds both halves of the game:
 | [`backend/`](backend/) | REST API that picks the secret and scores guesses | Spring Boot 4.1, Java 17+, H2 |
 | [`frontend/`](frontend/) | Browser UI | React 19, React Router 7, Vite, Bootstrap 5 |
 
-The frontend used to live in
-[cowsandbulls_reactjs](https://github.com/rahiman-zoheb/cowsandbulls_reactjs); its full
-history was imported here under `frontend/`.
+The frontend used to be a separate repository, `cowsandbulls_reactjs`, which has since been
+deleted; its full history was imported here under `frontend/`.
 
 ## Running locally
 
